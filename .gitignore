@@ -1,6 +1,7 @@
 build_wii
 build_gc
 executables
+hbc
 .project
 .settings/
 .cproject

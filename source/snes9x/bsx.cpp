@@ -16,6 +16,16 @@
 
 extern bool bsxBiosLoadFailed;
 
+#ifdef GEKKO
+// BS-X GX: the front-end owns the memory-pack image (Memory.ROM[0..FLASH_SIZE))
+// and persists it. These let it notice flash activity without polling 1 MB.
+bool	BSXFlashDirty = false;		// set on any flash write/erase; cleared by the front-end after saving
+uint32	BSXFlashWriteSeq = 0;		// bumped on every write/erase (front-end debounces on it)
+#define BSX_FLASH_TOUCHED()	do { BSXFlashDirty = true; BSXFlashWriteSeq++; } while (0)
+#else
+#define BSX_FLASH_TOUCHED()	do { } while (0)
+#endif
+
 //#define BSX_DEBUG
 
 #define BIOS_SIZE	0x100000
@@ -535,6 +545,8 @@ static void BSX_Set_Bypass_FlashIO (uint32 offset, uint8 byte)
 	//For games other than BS-X
 	FlashROM = Memory.ROM + Multi.cartOffsetB;
 
+	BSX_FLASH_TOUCHED();
+
 	if (BSX.prevMMC[0x02])
 		FlashROM[offset & 0x0FFFFF] = FlashROM[offset & 0x0FFFFF] & byte;
 	else
@@ -708,6 +720,7 @@ void S9xSetBSX (uint8 byte, uint32 address)
 			{
 				case 0x20D0: //Block Erase
 					uint32 x;
+					BSX_FLASH_TOUCHED();
 					for (x = 0; x < 0x10000; x++) {
 						//BSX_Set_Bypass_FlashIO(((address & 0xFF0000) + x), 0xFF);
 						if (BSX.MMC[0x02])
@@ -721,6 +734,7 @@ void S9xSetBSX (uint8 byte, uint32 address)
 					if ((flashcard[6] & 0xF0) == 0x10 || (flashcard[6] & 0xF0) == 0x40)
 					{
 						uint32 x;
+						BSX_FLASH_TOUCHED();
 						for (x = 0; x < FLASH_SIZE; x++) {
 							//BSX_Set_Bypass_FlashIO(x, 0xFF);
 							FlashROM[x] = 0xFF;
@@ -1357,8 +1371,12 @@ void S9xInitBSX (void)
 
 void S9xResetBSX (void)
 {
+#ifndef GEKKO
 	if (Settings.BSXItself)
 		memset(Memory.ROM, 0, FLASH_SIZE);
+#endif
+	// BS-X GX (GEKKO): the memory pack is a persistent flash image owned by the
+	// front-end (persist.cpp); a reset must not wipe it, just like real hardware.
 
 	memset(BSX.PPU, 0, sizeof(BSX.PPU));
 	memset(BSX.MMC, 0, sizeof(BSX.MMC));

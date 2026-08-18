@@ -143,6 +143,7 @@ preparePrefsData ()
 	
 	createXMLSection("Network", "Network Settings");
 
+	createXMLSetting("stationURL", "Station URL (host[:port])", GCSettings.stationURL);
 	createXMLSetting("smbip", "Share Computer IP", GCSettings.smbip);
 	createXMLSetting("smbshare", "Share Name", GCSettings.smbshare);
 	createXMLSetting("smbuser", "Share Username", GCSettings.smbuser);
@@ -328,6 +329,7 @@ decodePrefsData ()
 
 	// Network Settings
 
+	loadXMLSetting(GCSettings.stationURL, "stationURL", sizeof(GCSettings.stationURL));
 	loadXMLSetting(GCSettings.smbip, "smbip", sizeof(GCSettings.smbip));
 	loadXMLSetting(GCSettings.smbshare, "smbshare", sizeof(GCSettings.smbshare));
 	loadXMLSetting(GCSettings.smbuser, "smbuser", sizeof(GCSettings.smbuser));
@@ -459,6 +461,7 @@ DefaultSettings ()
 	sprintf (GCSettings.ScreenshotsFolder, "%s/%s", APPFOLDER, loadFolder[LOADFOLDER_SCREENSHOTS].name); // Path to screenshots files
 	sprintf (GCSettings.CoverFolder, "%s/%s", APPFOLDER, loadFolder[LOADFOLDER_COVERS].name); // Path to cover files
 	sprintf (GCSettings.ArtworkFolder, "%s/%s", APPFOLDER, loadFolder[LOADFOLDER_ARTWORK].name); // Path to artwork files
+	GCSettings.stationURL[0] = 0; // BS-X GX: no station until the user sets one
 	GCSettings.AutoLoad = true;
 	GCSettings.AutoSave = true;
 

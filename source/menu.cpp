@@ -47,6 +47,8 @@
 #include "snes9x/memmap.h"
 #include "snes9x/apu/apu.h"
 #include "snes9x/cheats.h"
+#include "bsxboot.h"
+#include "persist.h"
 
 extern SCheatData Cheat;
 extern void ToggleCheat(uint32);
@@ -992,6 +994,52 @@ static void WindowCredits(void * ptr)
 }
 
 /****************************************************************************
+ * MenuBSXBoot
+ *
+ * BS-X GX: the only screen before the town. Finds and loads BS-X.bin,
+ * restores the cartridge state, then hands over to emulation.
+ ***************************************************************************/
+static int MenuBSXBoot()
+{
+	char biosPath[MAXPATHLEN];
+
+	ResumeGui();
+
+	while(1)
+	{
+		if(!BSXLocateBIOS(biosPath, sizeof(biosPath)))
+		{
+			int choice = WindowPrompt(
+				"BS-X BIOS not found",
+				"Copy the Satellaview BS-X ROM (1 MB, English + No-DRM, from the BS-X Project) to sd:/bsx-gx/BS-X.bin (or usb:/bsx-gx/BS-X.bin), then press Retry.",
+				"Retry", "Exit");
+			if(choice == 0)
+				ExitApp();
+			continue;
+		}
+
+		ShowAction("Loading BS-X...");
+		bool ok = BSXLoadBIOS(biosPath);
+		CancelAction();
+
+		if(!ok)
+		{
+			int choice = WindowPrompt(
+				"BS-X BIOS could not be loaded",
+				"BS-X.bin was found but is not the Satellaview BS-X ROM (it must be exactly 1 MB, optionally with a 512-byte copier header). Replace it, then press Retry.",
+				"Retry", "Exit");
+			if(choice == 0)
+				ExitApp();
+			continue;
+		}
+		break;
+	}
+
+	GCSettings.AutoloadGame = true;	// in-game menu offers "Exit" rather than a game browser
+	return MENU_EXIT;
+}
+
+/****************************************************************************
  * MenuGameSelection
  *
  * Displays a list of games on the specified load device, and allows the user
@@ -1414,9 +1462,8 @@ static int MenuGame()
 	GuiImageData btnLargeOutline(button_large_png);
 	GuiImageData btnLargeOutlineOver(button_large_over_png);
 	GuiImageData iconGameSettings(icon_game_settings_png);
-	GuiImageData iconLoad(icon_game_load_png);
+	GuiImageData iconSettings(icon_settings_menu_png);
 	GuiImageData iconSave(icon_game_save_png);
-	GuiImageData iconDelete(icon_game_delete_png);
 	GuiImageData iconReset(icon_game_reset_png);
 
 	GuiImageData battery(battery_png);
@@ -1430,13 +1477,13 @@ static int MenuGame()
 	trigB.SetButtonOnlyTrigger(-1, WPAD_BUTTON_B | WPAD_CLASSIC_BUTTON_B, PAD_BUTTON_B, WIIDRC_BUTTON_B);
 	trig1.SetButtonOnlyTrigger(-1, WPAD_BUTTON_1, 0, 0);
 
-	GuiText saveBtnTxt("Save", 22, (GXColor){0, 0, 0, 255});
+	GuiText saveBtnTxt("Save Now", 22, (GXColor){0, 0, 0, 255});
 	GuiImage saveBtnImg(&btnLargeOutline);
 	GuiImage saveBtnImgOver(&btnLargeOutlineOver);
 	GuiImage saveBtnIcon(&iconSave);
 	GuiButton saveBtn(btnLargeOutline.GetWidth(), btnLargeOutline.GetHeight());
 	saveBtn.SetAlignment(ALIGN_CENTRE, ALIGN_TOP);
-	saveBtn.SetPosition(-200, 120);
+	saveBtn.SetPosition(-125, 120);
 	saveBtn.SetLabel(&saveBtnTxt);
 	saveBtn.SetImage(&saveBtnImg);
 	saveBtn.SetImageOver(&saveBtnImgOver);
@@ -1447,39 +1494,22 @@ static int MenuGame()
 	saveBtn.SetTrigger(trig2);
 	saveBtn.SetEffectGrow();
 
-	GuiText loadBtnTxt("Load", 22, (GXColor){0, 0, 0, 255});
-	GuiImage loadBtnImg(&btnLargeOutline);
-	GuiImage loadBtnImgOver(&btnLargeOutlineOver);
-	GuiImage loadBtnIcon(&iconLoad);
-	GuiButton loadBtn(btnLargeOutline.GetWidth(), btnLargeOutline.GetHeight());
-	loadBtn.SetAlignment(ALIGN_CENTRE, ALIGN_TOP);
-	loadBtn.SetPosition(0, 120);
-	loadBtn.SetLabel(&loadBtnTxt);
-	loadBtn.SetImage(&loadBtnImg);
-	loadBtn.SetImageOver(&loadBtnImgOver);
-	loadBtn.SetIcon(&loadBtnIcon);
-	loadBtn.SetSoundOver(&btnSoundOver);
-	loadBtn.SetSoundClick(&btnSoundClick);
-	loadBtn.SetTrigger(trigA);
-	loadBtn.SetTrigger(trig2);
-	loadBtn.SetEffectGrow();
-
-	GuiText deleteBtnTxt("Delete", 22, (GXColor){0, 0, 0, 255});
-	GuiImage deleteBtnImg(&btnLargeOutline);
-	GuiImage deleteBtnImgOver(&btnLargeOutlineOver);
-	GuiImage deleteBtnIcon(&iconDelete);
-	GuiButton deleteBtn(btnLargeOutline.GetWidth(), btnLargeOutline.GetHeight());
-	deleteBtn.SetAlignment(ALIGN_CENTRE, ALIGN_TOP);
-	deleteBtn.SetPosition(200, 120);
-	deleteBtn.SetLabel(&deleteBtnTxt);
-	deleteBtn.SetImage(&deleteBtnImg);
-	deleteBtn.SetImageOver(&deleteBtnImgOver);
-	deleteBtn.SetIcon(&deleteBtnIcon);
-	deleteBtn.SetSoundOver(&btnSoundOver);
-	deleteBtn.SetSoundClick(&btnSoundClick);
-	deleteBtn.SetTrigger(trigA);
-	deleteBtn.SetTrigger(trig2);
-	deleteBtn.SetEffectGrow();
+	GuiText settingsBtnTxt("Settings", 22, (GXColor){0, 0, 0, 255});
+	GuiImage settingsBtnImg(&btnLargeOutline);
+	GuiImage settingsBtnImgOver(&btnLargeOutlineOver);
+	GuiImage settingsBtnIcon(&iconSettings);
+	GuiButton settingsBtn(btnLargeOutline.GetWidth(), btnLargeOutline.GetHeight());
+	settingsBtn.SetAlignment(ALIGN_CENTRE, ALIGN_TOP);
+	settingsBtn.SetPosition(125, 120);
+	settingsBtn.SetLabel(&settingsBtnTxt);
+	settingsBtn.SetImage(&settingsBtnImg);
+	settingsBtn.SetImageOver(&settingsBtnImgOver);
+	settingsBtn.SetIcon(&settingsBtnIcon);
+	settingsBtn.SetSoundOver(&btnSoundOver);
+	settingsBtn.SetSoundClick(&btnSoundClick);
+	settingsBtn.SetTrigger(trigA);
+	settingsBtn.SetTrigger(trig2);
+	settingsBtn.SetEffectGrow();
 	
 	GuiText resetBtnTxt("Reset", 22, (GXColor){0, 0, 0, 255});
 	GuiImage resetBtnImg(&btnLargeOutline);
@@ -1600,8 +1630,7 @@ static int MenuGame()
 	GuiWindow w(screenwidth, screenheight);
 	w.Append(&titleTxt);
 	w.Append(&saveBtn);
-	w.Append(&loadBtn);
-	w.Append(&deleteBtn);
+	w.Append(&settingsBtn);
 	w.Append(&resetBtn);
 	w.Append(&gameSettingsBtn);
 
@@ -1639,9 +1668,6 @@ static int MenuGame()
 	}
 
 	ResumeGui();
-	
-	if(lastMenu == MENU_NONE)
-		AutoSave();
 
 	while(menu == MENU_NONE)
 	{
@@ -1690,19 +1716,19 @@ static int MenuGame()
 
 		if(saveBtn.GetState() == STATE_CLICKED)
 		{
-			menu = MENU_GAME_SAVE;
+			saveBtn.ResetState();
+			ShowAction("Saving...");
+			PersistFlushSync();
+			CancelAction();
+			InfoPrompt("Memory pack, PSRAM and SRAM are on the card.");
 		}
-		else if(loadBtn.GetState() == STATE_CLICKED)
+		else if(settingsBtn.GetState() == STATE_CLICKED)
 		{
-			menu = MENU_GAME_LOAD;
-		}
-		else if(deleteBtn.GetState() == STATE_CLICKED)
-		{
-			menu = MENU_GAME_DELETE;
+			menu = MENU_SETTINGS;
 		}
 		else if(resetBtn.GetState() == STATE_CLICKED)
 		{
-			if (WindowPrompt("Reset Game", "Are you sure that you want to reset this game? Any unsaved progress will be lost.", "OK", "Cancel"))
+			if (WindowPrompt("Reset", "Reset the BS-X? Your memory pack, PSRAM and SRAM are kept, like on real hardware.", "OK", "Cancel"))
 			{
 				S9xSoftReset ();
 				menu = MENU_EXIT;
@@ -1732,7 +1758,7 @@ static int MenuGame()
 #endif
 		else if(mainmenuBtn.GetState() == STATE_CLICKED)
 		{
-			if (WindowPrompt("Quit Game", "Quit this game? Any unsaved progress will be lost.", "OK", "Cancel"))
+			if (WindowPrompt("Exit", "Leave BS-X GX? Your cartridge state is saved first.", "OK", "Cancel"))
 			{
 				HaltGui();
 				mainWindow->Remove(gameScreenImg);
@@ -4238,7 +4264,7 @@ static int MenuSettings()
 		}
 		else if(backBtn.GetState() == STATE_CLICKED)
 		{
-			menu = MENU_GAMESELECTION;
+			menu = MENU_GAME;
 		}
 		else if(resetBtn.GetState() == STATE_CLICKED)
 		{
@@ -5057,7 +5083,7 @@ MainMenu (int menu)
 	mainWindow->Append(bgBottomImg);
 	mainWindow->Append(btnLogo);
 
-	if(currentMenu == MENU_GAMESELECTION)
+	if(currentMenu == MENU_GAMESELECTION || currentMenu == MENU_BSXBOOT)
 		ResumeGui();
 
 	if(firstRun) {
@@ -5102,8 +5128,12 @@ MainMenu (int menu)
 	{
 		switch (currentMenu)
 		{
+			case MENU_BSXBOOT:
+				currentMenu = MenuBSXBoot();
+				break;
 			case MENU_GAMESELECTION:
-				currentMenu = MenuGameSelection();
+				// BS-X GX: no game browser — the BIOS is the game
+				currentMenu = (SNESROMSize > 0) ? MENU_GAME : MENU_BSXBOOT;
 				break;
 			case MENU_GAME:
 				currentMenu = MenuGame();
@@ -5154,7 +5184,7 @@ MainMenu (int menu)
 				currentMenu = MenuSettingsOtherMappings();
 				break;
 			default: // unrecognized menu
-				currentMenu = MenuGameSelection();
+				currentMenu = (SNESROMSize > 0) ? MENU_GAME : MENU_BSXBOOT;
 				break;
 		}
 		lastMenu = currentMenu;

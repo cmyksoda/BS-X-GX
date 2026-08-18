@@ -18,9 +18,9 @@
 #include "snes9x.h"
 #include "filelist.h"
 
-#define APPNAME 			"Snes9x GX"
-#define APPVERSION 			"5.0.2"
-#define APPFOLDER 			"snes9xgx"
+#define APPNAME 			"BS-X GX"
+#define APPVERSION 			"0.1.0"
+#define APPFOLDER 			"bsx-gx"
 #define PREF_FILE_NAME		"settings.xml"
 
 #define MAXPATHLEN 1024
@@ -233,6 +233,7 @@ struct SGCSettings{
 	char	smbuser[20];
 	char	smbpwd[20];
 	char	smbshare[20];
+	char	stationURL[128];   // BS-X GX: station host[:port] (plain HTTP)
 
 	int		videoMode;
 	int		videoAspectRatioCorrection;

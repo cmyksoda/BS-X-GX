@@ -1,14 +1,17 @@
 /****************************************************************************
- * Snes9x GX
+ * BS-X GX (built on Snes9x GX)
  *
  * softdev July 2006
  * crunchy2 May 2007-July 2007
  * Michniewski 2008
  * Daryl Borth 2008-2026
+ * BS-X GX changes 2026
  *
  * snes9xgx.cpp
  *
  * This file controls overall program flow. Most things start and end here!
+ * BS-X GX boots straight into the BS-X BIOS (see MenuBSXBoot in menu.cpp)
+ * and keeps the cartridge state on the card (persist.cpp).
  ***************************************************************************/
 
 #include "snes9xgx.h"
@@ -25,6 +28,7 @@
 #include "filebrowser.h"
 #include "input.h"
 #include "memmanager.h"
+#include "persist.h"
 
 #include "snes9x/snes9x.h"
 #include "snes9x/fxemu.h"
@@ -34,7 +38,6 @@
 bool MenuRequested = false;
 char appPath[1024] = { 0 };
 static bool firstRun = true;
-static bool autoboot = false;
 
 int main(int argc, char *argv[])
 {
@@ -44,45 +47,27 @@ int main(int argc, char *argv[])
 	ResetVideo_Menu (); // change to menu video mode
 	S9xInitSync(); // initialize frame sync
 	InitGUIThreads();
+	PersistInit();
 
 #ifdef HW_RVL
 	// store path app was loaded from
 	if(argc > 0 && argv[0] != NULL)
 		CreateAppPath(argv[0]);
-
-	if(argc > 2 && argv[1] != NULL && argv[2] != NULL) {
-		LoadPrefs();
-		if(strncmp(argv[1], "sd", 2) == 0)
-		{
-			GCSettings.SaveMethod = DEVICE_SD;
-			GCSettings.LoadMethod = DEVICE_SD;
-		}
-		else if(strncmp(argv[1], "usb", 3) == 0)
-		{
-			GCSettings.SaveMethod = DEVICE_USB;
-			GCSettings.LoadMethod = DEVICE_USB;
-		}
-		SavePrefs(SILENT);
-
-		GCSettings.AutoloadGame = AutoloadGame(argv[1], argv[2]);
-		autoboot = GCSettings.AutoloadGame;
-	}
 #endif
 
 	while (1) // main loop
 	{
-		if(!autoboot) {
-			// go back to checking if devices were inserted/removed
-			// since we're entering the menu
-			ResumeDeviceThread();
-			SwitchAudioMode(1);
-			SwitchMemoryModeMenu();
+		// go back to checking if devices were inserted/removed
+		// since we're entering the menu
+		ResumeDeviceThread();
+		SwitchAudioMode(1);
+		SwitchMemoryModeMenu();
 
-			if(SNESROMSize == 0)
-				MainMenu(MENU_GAMESELECTION);
-			else
-				MainMenu(MENU_GAME);
-		}
+		// first time through: find + load the BS-X BIOS; afterwards: the Home menu
+		if(SNESROMSize == 0)
+			MainMenu(MENU_BSXBOOT);
+		else
+			MainMenu(MENU_GAME);
 
 		if (firstRun)
 		{
@@ -112,7 +97,6 @@ int main(int argc, char *argv[])
 			}
 		}
 		
-		autoboot = false;		
 		MenuRequested = false;
 		SwitchAudioMode(0);
 
@@ -140,12 +124,14 @@ int main(int argc, char *argv[])
 		CheckVideo = 2;		// force video update
 		prevRenderedFrameCount = IPPU.RenderedFramesCount;
 		SelectFilterMethod(GCSettings.videoUpscalingFilter); // Initialize / Re-evaluate active filter
+		PersistResume(); // background writer may touch the card while we play
 
 		while(1) // emulation loop
 		{
 			S9xMainLoop ();
 			ReportButtons ();
 			ClearButtonsReported ();
+			PersistTick ();
 
 			if(ResetRequested)
 			{
@@ -155,6 +141,7 @@ int main(int argc, char *argv[])
 			if (MenuRequested)
 			{
 				MenuRequested = false;
+				PersistFlushSync(); // cartridge state on the card before the menu opens
 				SwitchMemoryModeMenu();
 				TakeScreenshot();
 				ResetVideo_Menu();
@@ -169,10 +156,7 @@ int main(int argc, char *argv[])
 }
 
 void ExitApp() {
+	PersistFlushSync(); // memory pack / PSRAM / SRAM first, whatever else happens
 	SavePrefs(SILENT);
-
-	if (SNESROMSize > 0 && !MenuRequested && GCSettings.AutoSave == AUTOSAVE_SRAM)
-		SaveSRAMAuto(SILENT);
-
-	SystemExit(GCSettings.ExitAction, autoboot);
+	SystemExit(GCSettings.ExitAction, false);
 }
