@@ -1011,7 +1011,7 @@ static int MenuBSXBoot()
 		{
 			int choice = WindowPrompt(
 				"BS-X BIOS not found",
-				"Copy the Satellaview BS-X ROM (1 MB, English + No-DRM, from the BS-X Project) to sd:/bsx-gx/BS-X.bin (or usb:/bsx-gx/BS-X.bin), then press Retry.",
+				"Copy the Satellaview BS-X ROM (1 MB, English + No-DRM, from the BS-X Project) to sd:/bsxgx/BS-X.bin (or usb:/bsxgx/BS-X.bin), then press Retry.",
 				"Retry", "Exit");
 			if(choice == 0)
 				ExitApp();

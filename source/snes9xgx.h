@@ -20,7 +20,7 @@
 
 #define APPNAME 			"BS-X GX"
 #define APPVERSION 			"0.1.0"
-#define APPFOLDER 			"bsx-gx"
+#define APPFOLDER 			"bsxgx"
 #define PREF_FILE_NAME		"settings.xml"
 
 #define MAXPATHLEN 1024

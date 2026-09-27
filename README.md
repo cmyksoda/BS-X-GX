@@ -16,18 +16,18 @@ The station server lives in a separate repository, **bsx-station**.
 ## What you need
 
 - A Wii (or Wii U in vWii mode) with the Homebrew Channel. An SD card or USB drive.
-- **`BS-X.bin`** — the 1 MB Satellaview BS-X ROM, English + No-DRM version, from the [BS-X Project](https://project.satellaview.org/downloads.htm). **Not included** — put it at `sd:/bsx-gx/BS-X.bin` (or `usb:/bsx-gx/BS-X.bin`).
+- **`BS-X.bin`** — the 1 MB Satellaview BS-X ROM, English + No-DRM version, from the [BS-X Project](https://project.satellaview.org/downloads.htm). **Not included** — put it at `sd:/bsxgx/BS-X.bin` (or `usb:/bsxgx/BS-X.bin`).
 - A station to tune to: Home → Settings → Network → **Station Address**, as `host` or `host:port`. Without one,
   the town still works offline, like a Satellaview with no dish.
 
 ## Install
 
 ```
-sd:/apps/bsx-gx/boot.dol      ← the app (from the release zip; releases are hand-packed)
-sd:/apps/bsx-gx/meta.xml
-sd:/apps/bsx-gx/icon.png
-sd:/bsx-gx/BS-X.bin           ← you supply this
-sd:/bsx-gx/saves/             ← created automatically: BS-X.srm, BS-X.mempack, BS-X.psram
+sd:/apps/bsxgx/boot.dol      ← the app (from the release zip; releases are hand-packed)
+sd:/apps/bsxgx/meta.xml
+sd:/apps/bsxgx/icon.png
+sd:/bsxgx/BS-X.bin           ← you supply this
+sd:/bsxgx/saves/             ← created automatically: BS-X.srm, BS-X.mempack, BS-X.psram
 ```
 
 ## Building
