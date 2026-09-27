@@ -37,6 +37,9 @@ bool MenuRequested = false;
 char appPath[1024] = { 0 };
 static bool firstRun = true;
 
+// the local Dolphin test rig links its own; release builds keep this no-op
+__attribute__((weak)) void TestHookFrame() {}
+
 int main(int argc, char *argv[])
 {
 	SystemInit();
@@ -127,6 +130,7 @@ int main(int argc, char *argv[])
 		{
 			S9xMainLoop ();
 			ReportButtons ();
+			TestHookFrame ();
 			ClearButtonsReported ();
 			PersistTick ();
 
