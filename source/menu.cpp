@@ -631,11 +631,15 @@ void InfoPrompt(const char *msg)
  * Opens an on-screen keyboard window, with the data entered being stored
  * into the specified variable.
  ***************************************************************************/
-static void OnScreenKeyboard(char * var, u32 maxlen)
+static void OnScreenKeyboard(char * var, u32 maxlen, const char * label)
 {
 	int save = -1;
 
 	GuiKeyboard keyboard(var, maxlen);
+
+	GuiText labelTxt(label, 26, (GXColor){255, 255, 255, 255});
+	labelTxt.SetAlignment(ALIGN_CENTRE, ALIGN_TOP);
+	labelTxt.SetPosition(0, -29);
 
 	GuiSound btnSoundOver(button_over_pcm, button_over_pcm_size, SOUND_PCM);
 	GuiSound btnSoundClick(button_click_pcm, button_click_pcm_size, SOUND_PCM);
@@ -674,6 +678,7 @@ static void OnScreenKeyboard(char * var, u32 maxlen)
 	cancelBtn.SetTrigger(trig2);
 	cancelBtn.SetEffectGrow();
 
+	keyboard.Append(&labelTxt);
 	keyboard.Append(&okBtn);
 	keyboard.Append(&cancelBtn);
 
@@ -3751,7 +3756,9 @@ static int MenuSettingsNetwork()
 		switch (ret)
 		{
 			case 0:
-				OnScreenKeyboard(GCSettings.stationURL, sizeof(GCSettings.stationURL) - 1);
+				titleTxt.SetVisible(false);
+				OnScreenKeyboard(GCSettings.stationURL, sizeof(GCSettings.stationURL) - 1, "Station Address");
+				titleTxt.SetVisible(true);
 				break;
 		}
 
