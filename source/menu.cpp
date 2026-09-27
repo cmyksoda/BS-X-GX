@@ -56,7 +56,6 @@ static u8 * gameScreenTexture = NULL;
 static GuiImage * gameScreenImg = NULL;
 static GuiImage * bgTopImg = NULL;
 static GuiImage * bgBottomImg = NULL;
-static GuiSound * bgMusic = NULL;
 static GuiSound * enterSound = NULL;
 static GuiSound * exitSound = NULL;
 static GuiWindow * mainWindow = NULL;
@@ -90,8 +89,6 @@ static int progressDone = 0;
 static int progressTotal = 0;
 static bool buttonMappingCancelled = false;
 
-u8 * bg_music;
-u32 bg_music_size;
 
 /****************************************************************************
  * ResumeGui
@@ -3533,7 +3530,6 @@ static int MenuSettingsMenu()
 
 	sprintf(options.name[i++], "Exit Action");
 	sprintf(options.name[i++], "Wiimote Orientation");
-	sprintf(options.name[i++], "Music Volume");
 	sprintf(options.name[i++], "Sound Effects Volume");
 	sprintf(options.name[i++], "Rumble");
 	sprintf(options.name[i++], "Language");
@@ -3603,20 +3599,14 @@ static int MenuSettingsMenu()
 				GCSettings.WiimoteOrientation ^= 1;
 				break;
 			case 2:
-				GCSettings.MusicVolume += 10;
-				if(GCSettings.MusicVolume > 100)
-					GCSettings.MusicVolume = 0;
-				bgMusic->SetVolume(GCSettings.MusicVolume);
-				break;
-			case 3:
 				GCSettings.SFXVolume += 10;
 				if(GCSettings.SFXVolume > 100)
 					GCSettings.SFXVolume = 0;
 				break;
-			case 4:
+			case 3:
 				GCSettings.Rumble = !GCSettings.Rumble;
 				break;
-			case 5:
+			case 4:
 				GCSettings.language++;
 				
 				if(GCSettings.language == LANG_TRAD_CHINESE) // skip (not supported)
@@ -3644,38 +3634,33 @@ static int MenuSettingsMenu()
 			else if (GCSettings.WiimoteOrientation == WIIMOTE_ORIENTATION_HORIZONTAL)
 				sprintf (options.value[1], "Horizontal");
 
-			if(GCSettings.MusicVolume > 0)
-				sprintf(options.value[2], "%d%%", GCSettings.MusicVolume);
+			if(GCSettings.SFXVolume > 0)
+				sprintf(options.value[2], "%d%%", GCSettings.SFXVolume);
 			else
 				sprintf(options.value[2], "Mute");
 
-			if(GCSettings.SFXVolume > 0)
-				sprintf(options.value[3], "%d%%", GCSettings.SFXVolume);
-			else
-				sprintf(options.value[3], "Mute");
-
 			if (GCSettings.Rumble)
-				sprintf (options.value[4], "Enabled");
+				sprintf (options.value[3], "Enabled");
 			else
-				sprintf (options.value[4], "Disabled");
+				sprintf (options.value[3], "Disabled");
 
 			switch(GCSettings.language)
 			{
-				case LANG_JAPANESE:		sprintf(options.value[5], "Japanese"); break;
-				case LANG_ENGLISH:		sprintf(options.value[5], "English"); break;
-				case LANG_GERMAN:		sprintf(options.value[5], "German"); break;
-				case LANG_FRENCH:		sprintf(options.value[5], "French"); break;
-				case LANG_SPANISH:		sprintf(options.value[5], "Spanish"); break;
-				case LANG_ITALIAN:		sprintf(options.value[5], "Italian"); break;
-				case LANG_DUTCH:		sprintf(options.value[5], "Dutch"); break;
-				case LANG_SIMP_CHINESE:	sprintf(options.value[5], "Chinese (Simplified)"); break;
-				case LANG_TRAD_CHINESE:	sprintf(options.value[5], "Chinese (Traditional)"); break;
-				case LANG_KOREAN:		sprintf(options.value[5], "Korean"); break;
-				case LANG_PORTUGUESE:	sprintf(options.value[5], "Portuguese"); break;
-				case LANG_BRAZILIAN_PORTUGUESE: sprintf(options.value[5], "Brazilian Portuguese"); break;
-				case LANG_CATALAN:		sprintf(options.value[5], "Catalan"); break;
-				case LANG_TURKISH:		sprintf(options.value[5], "Turkish"); break;
-				case LANG_SWEDISH:		sprintf(options.value[5], "Swedish"); break;
+				case LANG_JAPANESE:		sprintf(options.value[4], "Japanese"); break;
+				case LANG_ENGLISH:		sprintf(options.value[4], "English"); break;
+				case LANG_GERMAN:		sprintf(options.value[4], "German"); break;
+				case LANG_FRENCH:		sprintf(options.value[4], "French"); break;
+				case LANG_SPANISH:		sprintf(options.value[4], "Spanish"); break;
+				case LANG_ITALIAN:		sprintf(options.value[4], "Italian"); break;
+				case LANG_DUTCH:		sprintf(options.value[4], "Dutch"); break;
+				case LANG_SIMP_CHINESE:	sprintf(options.value[4], "Chinese (Simplified)"); break;
+				case LANG_TRAD_CHINESE:	sprintf(options.value[4], "Chinese (Traditional)"); break;
+				case LANG_KOREAN:		sprintf(options.value[4], "Korean"); break;
+				case LANG_PORTUGUESE:	sprintf(options.value[4], "Portuguese"); break;
+				case LANG_BRAZILIAN_PORTUGUESE: sprintf(options.value[4], "Brazilian Portuguese"); break;
+				case LANG_CATALAN:		sprintf(options.value[4], "Catalan"); break;
+				case LANG_TURKISH:		sprintf(options.value[4], "Turkish"); break;
+				case LANG_SWEDISH:		sprintf(options.value[4], "Swedish"); break;
 			}
 
 			optionBrowser.TriggerUpdate();
@@ -4088,9 +4073,6 @@ MainMenu (int menu)
 
 	#ifndef NO_SOUND
 	if(firstRun) {
-		bgMusic = new GuiSound(bg_music, bg_music_size, SOUND_OGG);
-		bgMusic->SetVolume(GCSettings.MusicVolume);
-		bgMusic->SetLoop(true);
 		enterSound = new GuiSound(enter_ogg, enter_ogg_size, SOUND_OGG);
 		enterSound->SetVolume(GCSettings.SFXVolume);
 		exitSound = new GuiSound(exit_ogg, exit_ogg_size, SOUND_OGG);

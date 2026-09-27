@@ -159,7 +159,6 @@ preparePrefsData ()
 
 	createXMLSetting("WiimoteOrientation", "Wiimote Orientation", toStr(GCSettings.WiimoteOrientation));
 	createXMLSetting("ExitAction", "Exit Action", toStr(GCSettings.ExitAction));
-	createXMLSetting("MusicVolume", "Music Volume", toStr(GCSettings.MusicVolume));
 	createXMLSetting("SFXVolume", "Sound Effects Volume", toStr(GCSettings.SFXVolume));
 	createXMLSetting("Rumble", "Rumble", BtoStr(GCSettings.Rumble));
 	createXMLSetting("language", "Language", toStr(GCSettings.language));
@@ -312,7 +311,6 @@ decodePrefsData ()
 
 	loadXMLSetting(&GCSettings.WiimoteOrientation, "WiimoteOrientation");
 	loadXMLSetting(&GCSettings.ExitAction, "ExitAction");
-	loadXMLSetting(&GCSettings.MusicVolume, "MusicVolume");
 	loadXMLSetting(&GCSettings.SFXVolume, "SFXVolume");
 	loadXMLSetting(&GCSettings.Rumble, "Rumble");
 	loadXMLSetting(&GCSettings.language, "language");
@@ -359,8 +357,6 @@ void FixInvalidSettings()
 		GCSettings.videoXshift = 0;
 	if(!(GCSettings.videoYshift > -50 && GCSettings.videoYshift < 50))
 		GCSettings.videoYshift = 0;
-	if(!(GCSettings.MusicVolume >= 0 && GCSettings.MusicVolume <= 100))
-		GCSettings.MusicVolume = 20;
 	if(!(GCSettings.SFXVolume >= 0 && GCSettings.SFXVolume <= 100))
 		GCSettings.SFXVolume = 40;
 	if(GCSettings.language < 0 || GCSettings.language >= LANG_LENGTH)
@@ -413,7 +409,6 @@ DefaultSettings ()
 
 	GCSettings.WiimoteOrientation = WIIMOTE_ORIENTATION_VERTICAL;
 	GCSettings.ExitAction = EXITACTION_WII_AUTO;
-	GCSettings.MusicVolume = 20;
 	GCSettings.SFXVolume = 40;
 	GCSettings.Rumble = true;
 	
@@ -626,10 +621,6 @@ bool LoadPrefs()
 	if(GCSettings.videoMode > VIDEOMODE_AUTO) {
 		ResetVideo_Menu();
 	}
-
-	bg_music = (u8 * )bg_music_ogg;
-	bg_music_size = bg_music_ogg_size;
-	LoadBgMusic();
 
 	ChangeLanguage();
 	return true;
