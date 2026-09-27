@@ -5082,7 +5082,7 @@ MainMenu (int menu)
 	GuiImage logoImgOver(&logoOver);
 	GuiText logoTxt(APPVERSION, 18, (GXColor){255, 255, 255, 255});
 	logoTxt.SetAlignment(ALIGN_RIGHT, ALIGN_TOP);
-	logoTxt.SetPosition(0, 4);
+	logoTxt.SetPosition(14, 4);
 	btnLogo = new GuiButton(logoImg.GetWidth(), logoImg.GetHeight());
 	btnLogo->SetAlignment(ALIGN_RIGHT, ALIGN_TOP);
 	btnLogo->SetPosition(-50, 24);
