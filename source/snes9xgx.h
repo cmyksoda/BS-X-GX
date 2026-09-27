@@ -19,7 +19,7 @@
 #include "filelist.h"
 
 #define APPNAME 			"BS-X GX"
-#define APPVERSION 			"0.7.1"
+#define APPVERSION 			"0.7.2"
 #define APPFOLDER 			"bsxgx"
 #define SAVEFOLDER			APPFOLDER "/saves"
 #define PREF_FILE_NAME		"settings.xml"
