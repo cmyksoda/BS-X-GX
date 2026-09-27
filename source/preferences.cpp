@@ -461,7 +461,7 @@ DefaultSettings ()
 	sprintf (GCSettings.ScreenshotsFolder, "%s/%s", APPFOLDER, loadFolder[LOADFOLDER_SCREENSHOTS].name); // Path to screenshots files
 	sprintf (GCSettings.CoverFolder, "%s/%s", APPFOLDER, loadFolder[LOADFOLDER_COVERS].name); // Path to cover files
 	sprintf (GCSettings.ArtworkFolder, "%s/%s", APPFOLDER, loadFolder[LOADFOLDER_ARTWORK].name); // Path to artwork files
-	GCSettings.stationURL[0] = 0; // BS-X GX: no station until the user sets one
+	GCSettings.stationURL[0] = 0;
 	GCSettings.AutoLoad = true;
 	GCSettings.AutoSave = true;
 

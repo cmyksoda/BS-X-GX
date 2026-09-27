@@ -3,8 +3,7 @@
  *
  * persist.h
  *
- * Persistence of the BS-X cartridge state: the 8M memory pack (flash),
- * the 512 KB PSRAM and the 32 KB SRAM. See persist.cpp for the model.
+ * Keeps the memory pack, PSRAM and SRAM on the card
  ***************************************************************************/
 
 #ifndef _PERSIST_H_
@@ -12,15 +11,15 @@
 
 #include <gctypes.h>
 
-#define BSX_MEMPACK_SIZE	0x100000	// 8 Mbit memory pack (flash)
-#define BSX_PSRAM_SIZE		0x80000		// BS-X cartridge PSRAM
-#define BSX_SRAM_SIZE		0x8000		// BS-X cartridge SRAM (battery-backed)
+#define BSX_MEMPACK_SIZE	0x100000
+#define BSX_PSRAM_SIZE		0x80000
+#define BSX_SRAM_SIZE		0x8000
 
-void PersistInit();					// once at boot (main thread, after SystemInit)
-bool PersistLoadAll(bool silent);	// after the BIOS is loaded: restore pack + PSRAM (+ SRAM)
-void PersistResume();				// let the background writer run (call before emulation)
-void PersistTick();					// once per emulated frame, from the emulation loop
-void PersistFlushSync();			// pause the writer and write everything dirty right now
-bool PersistDirty();				// anything not yet on the card?
+void PersistInit();
+bool PersistLoadAll(bool silent);
+void PersistResume();
+void PersistTick();
+void PersistFlushSync();			// leaves the writer paused until PersistResume
+bool PersistDirty();
 
 #endif

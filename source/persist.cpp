@@ -3,29 +3,7 @@
  *
  * persist.cpp
  *
- * Keeps the emulated BS-X cartridge state on the SD/USB card the way real
- * hardware keeps it: the memory pack is flash (survives everything), the
- * SRAM and PSRAM are battery-backed.
- *
- * Model
- *  - Three "blobs" (pack / PSRAM / SRAM) each map a region of emulator
- *    memory to a file in the saves folder (BS-X.mempack / BS-X.psram /
- *    BS-X.srm).
- *  - The emulation thread never does SD I/O while playing. PersistTick()
- *    (called once per frame) only looks for changes: the core bumps
- *    BSXFlashWriteSeq on flash writes/erases (bsx.cpp); SRAM/PSRAM have no
- *    write hook, so they are checksummed every few seconds. Once a region
- *    has been quiet for a moment it is copied into a staging buffer and
- *    handed to a low-priority writer thread.
- *  - The writer thread owns all background SD writes (its own FILE*, never
- *    fileop.cpp's shared handle/savebuffer), writes in 32 KB pieces with
- *    yields, and replaces files atomically (tmp + rename).
- *  - PersistFlushSync() (menu / exit / power-off) parks the writer and
- *    writes anything still dirty synchronously.
- *
- * Threading rules honoured here: no extmem_malloc off the main thread
- * (the MEM2 mspace is unlocked); the device hot-plug thread is halted
- * around main-thread I/O just like fileop.cpp does.
+ * Keeps the memory pack, PSRAM and SRAM on the card, written in the background
  ***************************************************************************/
 
 #include <gccore.h>
@@ -51,39 +29,37 @@ enum { BLOB_MEMPACK = 0, BLOB_PSRAM, BLOB_SRAM, BLOB_COUNT };
 
 struct Blob
 {
-	const char *filename;	// inside the saves folder
-	uint8 *src;				// live emulator memory
+	const char *filename;
+	uint8 *src;
 	uint32 size;
-	uint8 *staging;			// copy handed to the writer (MEM2, allocated at init)
+	uint8 *staging;			// MEM2, allocated at init: the mspace isn't thread-safe
 	char path[MAXPATHLEN];
 
-	// main-thread bookkeeping
-	uint32 savedAdler;		// checksum of what is on the card
-	uint32 lastAdler;		// checksum seen at the previous poll (stability check)
+	uint32 savedAdler;
+	uint32 lastAdler;
 
-	// shared with the writer (protected by mutex)
-	bool pending;			// staging holds data that still has to be written
-	bool writing;			// writer is currently reading staging
+	// shared with the writer, under persistMutex
+	bool pending;
+	bool writing;
 };
 
 static Blob blobs[BLOB_COUNT];
 
 static lwp_t   writerThread = LWP_THREAD_NULL;
 static mutex_t persistMutex = LWP_MUTEX_NULL;
-static cond_t  wakeCond     = LWP_COND_NULL;	// main -> writer: work / state change
-static cond_t  idleCond     = LWP_COND_NULL;	// writer -> main: went idle
-static bool    paused       = true;				// writer must not touch the card
-static bool    busy         = false;			// writer is inside a write
+static cond_t  wakeCond     = LWP_COND_NULL;
+static cond_t  idleCond     = LWP_COND_NULL;
+static bool    paused       = true;
+static bool    busy         = false;
 static bool    initialized  = false;
-static bool    loaded       = false;			// PersistLoadAll() ran; ticks may save
+static bool    loaded       = false;
 
-// flash debounce (main thread only)
 static uint32 lastFlashSeq   = 0;
 static uint32 flashQuiet     = 0;
 static uint32 pollCountdown  = 0;
 
-#define FLASH_QUIET_FRAMES	120		// ~2 s after the last flash write
-#define POLL_FRAMES			300		// checksum SRAM/PSRAM every ~5 s
+#define FLASH_QUIET_FRAMES	120
+#define POLL_FRAMES			300
 #define WRITE_CHUNK			32768
 
 /****************************************************************************
@@ -106,9 +82,8 @@ static bool ReadExact(const char *path, uint8 *dst, uint32 size)
 	return ok;
 }
 
-// Writes tmp, then swaps it in. libfat's rename() refuses to overwrite,
-// so the old file is unlinked first; on load we fall back to the .tmp
-// if a power cut lands in that tiny window.
+// libfat's rename() won't overwrite, so a power cut between unlink and rename
+// leaves only the .tmp; LoadBlobFile falls back to it.
 static bool WriteAtomic(const char *path, const uint8 *data, uint32 size, bool yield)
 {
 	char tmp[MAXPATHLEN];
@@ -154,7 +129,6 @@ static bool LoadBlobFile(Blob &b)
 	snprintf(tmp, sizeof(tmp), "%s.tmp", b.path);
 	if(ReadExact(tmp, b.src, b.size))
 	{
-		// finish the interrupted swap
 		unlink(b.path);
 		rename(tmp, b.path);
 		return true;
@@ -193,13 +167,13 @@ static void * WriterThread(void *arg)
 		LWP_MutexLock(persistMutex);
 		b.writing = false;
 		if(!ok && !b.pending)
-			b.pending = true;	// keep it queued; the sync flush at exit gets another go
+			b.pending = true;
 		busy = false;
 		LWP_CondBroadcast(idleCond);
 		LWP_MutexUnlock(persistMutex);
 
 		if(!ok)
-			usleep(2000000);	// card trouble: don't spin
+			usleep(2000000);
 	}
 	return NULL;
 }
@@ -212,13 +186,12 @@ static void Stage(Blob &b, uint32 adler)
 	LWP_MutexLock(persistMutex);
 	if(b.writing)
 	{
-		// writer is still reading the previous copy; try again next tick
 		LWP_MutexUnlock(persistMutex);
 		return;
 	}
 	memcpy(b.staging, b.src, b.size);
 	b.pending = true;
-	b.savedAdler = adler;	// what will be on the card once the writer is done
+	b.savedAdler = adler;
 	LWP_CondSignal(wakeCond);
 	LWP_MutexUnlock(persistMutex);
 }
@@ -256,7 +229,7 @@ void PersistInit()
 
 static void BindMemory()
 {
-	blobs[BLOB_MEMPACK].src = Memory.ROM;		// FlashROM == Memory.ROM for the BS-X BIOS
+	blobs[BLOB_MEMPACK].src = Memory.ROM;		// the core's FlashROM for the BS-X BIOS
 	blobs[BLOB_PSRAM].src   = Memory.BSRAM;
 	blobs[BLOB_SRAM].src    = Memory.SRAM;
 
@@ -274,14 +247,12 @@ bool PersistLoadAll(bool silent)
 
 	HaltDeviceThread();
 
-	// memory pack: a fresh 8M pack is erased flash (all 0xFF)
+	// a new pack is erased flash
 	if(!LoadBlobFile(blobs[BLOB_MEMPACK]))
 		memset(blobs[BLOB_MEMPACK].src, 0xFF, BSX_MEMPACK_SIZE);
 
 	if(!LoadBlobFile(blobs[BLOB_PSRAM]))
 		memset(blobs[BLOB_PSRAM].src, 0x00, BSX_PSRAM_SIZE);
-
-	// SRAM: sram.cpp already loaded it (and soft-reset) if present; nothing to do
 
 	ResumeDeviceThread();
 
@@ -313,7 +284,6 @@ void PersistTick()
 	if(!loaded)
 		return;
 
-	// memory pack: debounce on the core's write counter
 	if(BSXFlashWriteSeq != lastFlashSeq)
 	{
 		lastFlashSeq = BSXFlashWriteSeq;
@@ -321,12 +291,12 @@ void PersistTick()
 	}
 	else if(BSXFlashDirty && ++flashQuiet >= FLASH_QUIET_FRAMES)
 	{
-		BSXFlashDirty = false;	// a later write sets it again
+		BSXFlashDirty = false;
 		flashQuiet = 0;
 		Stage(blobs[BLOB_MEMPACK], Checksum(blobs[BLOB_MEMPACK]));
 	}
 
-	// SRAM / PSRAM: no write hooks, so poll a checksum now and then
+	// SRAM and PSRAM have no write hooks
 	if(--pollCountdown > 0)
 		return;
 	pollCountdown = POLL_FRAMES;
@@ -335,7 +305,7 @@ void PersistTick()
 	{
 		Blob &b = blobs[i];
 		uint32 a = Checksum(b);
-		if(a != b.savedAdler && a == b.lastAdler)	// changed, and stable since last poll
+		if(a != b.savedAdler && a == b.lastAdler)	// wait until it stops changing
 			Stage(b, a);
 		b.lastAdler = a;
 	}
@@ -362,7 +332,6 @@ void PersistFlushSync()
 	if(!initialized)
 		return;
 
-	// park the writer
 	LWP_MutexLock(persistMutex);
 	paused = true;
 	while(busy)

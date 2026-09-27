@@ -47,7 +47,6 @@ struct SBSX
 extern struct SBSX	BSX;
 
 #ifdef GEKKO
-// BS-X GX memory-pack persistence hooks (see bsx.cpp / persist.cpp)
 extern bool		BSXFlashDirty;
 extern uint32	BSXFlashWriteSeq;
 #endif

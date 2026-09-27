@@ -996,8 +996,7 @@ static void WindowCredits(void * ptr)
 /****************************************************************************
  * MenuBSXBoot
  *
- * BS-X GX: the only screen before the town. Finds and loads BS-X.bin,
- * restores the cartridge state, then hands over to emulation.
+ * The only screen before the town
  ***************************************************************************/
 static int MenuBSXBoot()
 {
@@ -1035,7 +1034,7 @@ static int MenuBSXBoot()
 		break;
 	}
 
-	GCSettings.AutoloadGame = true;	// in-game menu offers "Exit" rather than a game browser
+	GCSettings.AutoloadGame = true;	// the Home menu offers Exit instead of a game browser
 	return MENU_EXIT;
 }
 
@@ -5132,7 +5131,6 @@ MainMenu (int menu)
 				currentMenu = MenuBSXBoot();
 				break;
 			case MENU_GAMESELECTION:
-				// BS-X GX: no game browser — the BIOS is the game
 				currentMenu = (SNESROMSize > 0) ? MENU_GAME : MENU_BSXBOOT;
 				break;
 			case MENU_GAME:

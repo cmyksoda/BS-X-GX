@@ -10,8 +10,6 @@
  * snes9xgx.cpp
  *
  * This file controls overall program flow. Most things start and end here!
- * BS-X GX boots straight into the BS-X BIOS (see MenuBSXBoot in menu.cpp)
- * and keeps the cartridge state on the card (persist.cpp).
  ***************************************************************************/
 
 #include "snes9xgx.h"
@@ -63,7 +61,6 @@ int main(int argc, char *argv[])
 		SwitchAudioMode(1);
 		SwitchMemoryModeMenu();
 
-		// first time through: find + load the BS-X BIOS; afterwards: the Home menu
 		if(SNESROMSize == 0)
 			MainMenu(MENU_BSXBOOT);
 		else
@@ -124,7 +121,7 @@ int main(int argc, char *argv[])
 		CheckVideo = 2;		// force video update
 		prevRenderedFrameCount = IPPU.RenderedFramesCount;
 		SelectFilterMethod(GCSettings.videoUpscalingFilter); // Initialize / Re-evaluate active filter
-		PersistResume(); // background writer may touch the card while we play
+		PersistResume();
 
 		while(1) // emulation loop
 		{
@@ -141,7 +138,7 @@ int main(int argc, char *argv[])
 			if (MenuRequested)
 			{
 				MenuRequested = false;
-				PersistFlushSync(); // cartridge state on the card before the menu opens
+				PersistFlushSync();
 				SwitchMemoryModeMenu();
 				TakeScreenshot();
 				ResetVideo_Menu();
@@ -156,7 +153,7 @@ int main(int argc, char *argv[])
 }
 
 void ExitApp() {
-	PersistFlushSync(); // memory pack / PSRAM / SRAM first, whatever else happens
+	PersistFlushSync(); // before anything else can fail
 	SavePrefs(SILENT);
 	SystemExit(GCSettings.ExitAction, false);
 }

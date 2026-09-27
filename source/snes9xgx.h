@@ -233,7 +233,7 @@ struct SGCSettings{
 	char	smbuser[20];
 	char	smbpwd[20];
 	char	smbshare[20];
-	char	stationURL[128];   // BS-X GX: station host[:port] (plain HTTP)
+	char	stationURL[128];   // host[:port], plain HTTP
 
 	int		videoMode;
 	int		videoAspectRatioCorrection;

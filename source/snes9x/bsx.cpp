@@ -17,10 +17,9 @@
 extern bool bsxBiosLoadFailed;
 
 #ifdef GEKKO
-// BS-X GX: the front-end owns the memory-pack image (Memory.ROM[0..FLASH_SIZE))
-// and persists it. These let it notice flash activity without polling 1 MB.
-bool	BSXFlashDirty = false;		// set on any flash write/erase; cleared by the front-end after saving
-uint32	BSXFlashWriteSeq = 0;		// bumped on every write/erase (front-end debounces on it)
+// lets the front-end notice flash writes without checksumming the 1 MB pack
+bool	BSXFlashDirty = false;
+uint32	BSXFlashWriteSeq = 0;
 #define BSX_FLASH_TOUCHED()	do { BSXFlashDirty = true; BSXFlashWriteSeq++; } while (0)
 #else
 #define BSX_FLASH_TOUCHED()	do { } while (0)
@@ -1371,12 +1370,10 @@ void S9xInitBSX (void)
 
 void S9xResetBSX (void)
 {
-#ifndef GEKKO
+#ifndef GEKKO // on Wii the pack is flash kept by persist.cpp; a reset mustn't wipe it
 	if (Settings.BSXItself)
 		memset(Memory.ROM, 0, FLASH_SIZE);
 #endif
-	// BS-X GX (GEKKO): the memory pack is a persistent flash image owned by the
-	// front-end (persist.cpp); a reset must not wipe it, just like real hardware.
 
 	memset(BSX.PPU, 0, sizeof(BSX.PPU));
 	memset(BSX.MMC, 0, sizeof(BSX.MMC));

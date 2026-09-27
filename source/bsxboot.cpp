@@ -3,10 +3,7 @@
  *
  * bsxboot.cpp
  *
- * Booting straight into the BS-X (Satellaview) BIOS. The BIOS is a 1 MB
- * LoROM cartridge image; the snes9x core recognises it (S9xInitBSX,
- * Settings.BSXItself), keeps it in Memory.BIOSROM and treats
- * Memory.ROM[0..1MB) as the inserted memory pack.
+ * Finds and loads the BS-X BIOS
  ***************************************************************************/
 
 #include <stdio.h>
@@ -69,8 +66,6 @@ bool BSXLocateBIOS(char *outPath, size_t outLen)
 
 bool BSXLoadBIOS(const char *path)
 {
-	// LoadFile() reads into savebuffer (2 MB) and transparently unzips.
-	// A 512-byte copier header is tolerated.
 	AllocSaveBuffer();
 	size_t size = LoadFile((char *)savebuffer, (char *)path, 0, BSX_BIOS_SIZE + 512, SILENT);
 	uint8 *buf = savebuffer;
@@ -87,7 +82,7 @@ bool BSXLoadBIOS(const char *path)
 	if(ok)
 	{
 		SNESROMSize = 0;
-		ok = Memory.LoadROMMem(buf, size);	// memcpy into Memory.ROM + LoadROMInt + S9xReset
+		ok = Memory.LoadROMMem(buf, size);
 	}
 	FreeSaveBuffer();
 
@@ -98,8 +93,6 @@ bool BSXLoadBIOS(const char *path)
 	Memory.ROMFilePath[0] = 0;
 	SNESROMSize = BSX_BIOS_SIZE;
 
-	// Battery-backed SRAM (town save). sram.cpp soft-resets after loading so
-	// the BIOS boots with it in place.
 	if(GCSettings.SaveMethod != DEVICE_AUTO)
 	{
 		char srm[MAXPATHLEN];
@@ -107,7 +100,6 @@ bool BSXLoadBIOS(const char *path)
 		LoadSRAM(srm, SILENT);
 	}
 
-	// Memory pack (flash) and PSRAM
 	PersistLoadAll(SILENT);
 	return true;
 }
