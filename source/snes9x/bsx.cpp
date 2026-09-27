@@ -17,6 +17,27 @@
 extern bool bsxBiosLoadFailed;
 
 #ifdef GEKKO
+#include "bsxstream.h"
+#include "ppu.h"
+
+// Packets trickle in like a real receiver's: when a whole game arrives at once, the BIOS
+// finishes reception before its sound-driver upload and the SPC never answers at launch.
+#define BSX_PACKETS_PER_FRAME	8
+static uint32	satBudget[2], satBudgetFrame[2];
+
+static uint16 BSXSatAvailable (int n, uint16 queue)
+{
+	uint32 elapsed = IPPU.TotalEmulatedFrames - satBudgetFrame[n];
+	if (elapsed)
+	{
+		satBudget[n] += (elapsed < 0x7F ? elapsed : 0x7F) * BSX_PACKETS_PER_FRAME;
+		if (satBudget[n] > 0x7F)
+			satBudget[n] = 0x7F;
+		satBudgetFrame[n] = IPPU.TotalEmulatedFrames;
+	}
+	return queue < satBudget[n] ? queue : satBudget[n];
+}
+
 // lets the front-end notice flash writes without checksumming the 1 MB pack
 bool	BSXFlashDirty = false;
 uint32	BSXFlashWriteSeq = 0;
@@ -750,6 +771,19 @@ void S9xSetBSX (uint8 byte, uint32 address)
 
 void S9xBSXSetStream1 (uint8 count)
 {
+#ifdef GEKKO
+	uint32 size;
+	uint16 lci = BSX.PPU[0x2188 - BSXPPUBASE] | (BSX.PPU[0x2189 - BSXPPUBASE] * 256);
+	if (BSXStreamOpen(0, lci, count, &size))
+	{
+		BSX.sat_stream1_queue = (uint16)(ceil(size / 22.));
+		BSX.PPU[0x218D - BSXPPUBASE] = 0;
+		BSX.sat_stream1_first = TRUE;
+		BSX.sat_stream1_loaded = TRUE;
+	}
+	else
+		BSX.sat_stream1_loaded = FALSE;
+#else
 	if (BSX.sat_stream1.is_open())
 		BSX.sat_stream1.close(); //If Stream already opened for one file: Close it.
 
@@ -778,10 +812,24 @@ void S9xBSXSetStream1 (uint8 count)
 	{
 		BSX.sat_stream1_loaded = FALSE;
 	}
+#endif
 }
 
 void S9xBSXSetStream2 (uint8 count)
 {
+#ifdef GEKKO
+	uint32 size;
+	uint16 lci = BSX.PPU[0x218E - BSXPPUBASE] | (BSX.PPU[0x218F - BSXPPUBASE] * 256);
+	if (BSXStreamOpen(1, lci, count, &size))
+	{
+		BSX.sat_stream2_queue = (uint16)(ceil(size / 22.));
+		BSX.PPU[0x2193 - BSXPPUBASE] = 0;
+		BSX.sat_stream2_first = TRUE;
+		BSX.sat_stream2_loaded = TRUE;
+	}
+	else
+		BSX.sat_stream2_loaded = FALSE;
+#else
 	if (BSX.sat_stream2.is_open())
 		BSX.sat_stream2.close(); //If Stream already opened for one file: Close it.
 
@@ -810,6 +858,7 @@ void S9xBSXSetStream2 (uint8 count)
 	{
 		BSX.sat_stream2_loaded = FALSE;
 	}
+#endif
 }
 
 uint8 S9xBSXGetRTC (void)
@@ -881,7 +930,6 @@ uint8 S9xGetBSXPPU (uint16 address)
 				break;
 			}
 
-#ifndef GEKKO
 			if (BSX.sat_stream1_queue <= 0)
 			{
 				BSX.sat_stream1_count++;
@@ -893,14 +941,17 @@ uint8 S9xGetBSXPPU (uint16 address)
 				BSX.sat_stream1_count = 1;
 				S9xBSXSetStream1(BSX.sat_stream1_count - 1);
 			}
-#endif
 			if (BSX.sat_stream1_loaded)
 			{
+#ifdef GEKKO
+				BSX.PPU[0x218A - BSXPPUBASE] = BSXSatAvailable(0, BSX.sat_stream1_queue);
+#else
 				//Lock at 0x7F for bigger packets
 				if (BSX.sat_stream1_queue >= 128)
 					BSX.PPU[0x218A - BSXPPUBASE] = 0x7F;
 				else
 					BSX.PPU[0x218A - BSXPPUBASE] = BSX.sat_stream1_queue;
+#endif
 				t = BSX.PPU[0x218A - BSXPPUBASE];
 			}
 			else
@@ -927,6 +978,10 @@ uint8 S9xGetBSXPPU (uint16 address)
 					}
 
 					BSX.sat_stream1_queue--;
+#ifdef GEKKO
+					if (satBudget[0])
+						satBudget[0]--;
+#endif
 
 					if (BSX.sat_stream1_queue == 0)
 					{
@@ -956,10 +1011,15 @@ uint8 S9xGetBSXPPU (uint16 address)
 				}
 				else if (BSX.sat_stream1_loaded)
 				{
+#ifdef GEKKO
+					int c = BSXStreamGet(0);
+					BSX.PPU[0x218C - BSXPPUBASE] = c < 0 ? 0xFF : c;
+#else
 					if (BSX.sat_stream1.eof())
 						BSX.PPU[0x218C - BSXPPUBASE] = 0xFF;
 					else
 						BSX.PPU[0x218C - BSXPPUBASE] = BSX.sat_stream1.get();
+#endif
 				}
 				t = BSX.PPU[0x218C - BSXPPUBASE];
 			}
@@ -1000,7 +1060,6 @@ uint8 S9xGetBSXPPU (uint16 address)
 				break;
 			}
 
-#ifndef GEKKO
 			if (BSX.sat_stream2_queue <= 0)
 			{
 				BSX.sat_stream2_count++;
@@ -1012,13 +1071,16 @@ uint8 S9xGetBSXPPU (uint16 address)
 				BSX.sat_stream2_count = 1;
 				S9xBSXSetStream2(BSX.sat_stream2_count - 1);
 			}
-#endif
 			if (BSX.sat_stream2_loaded)
 			{
+#ifdef GEKKO
+				BSX.PPU[0x2190 - BSXPPUBASE] = BSXSatAvailable(1, BSX.sat_stream2_queue);
+#else
 				if (BSX.sat_stream2_queue >= 128)
 					BSX.PPU[0x2190 - BSXPPUBASE] = 0x7F;
 				else
 					BSX.PPU[0x2190 - BSXPPUBASE] = BSX.sat_stream2_queue;
+#endif
 				t = BSX.PPU[0x2190 - BSXPPUBASE];
 			}
 			else
@@ -1045,6 +1107,10 @@ uint8 S9xGetBSXPPU (uint16 address)
 					}
 
 					BSX.sat_stream2_queue--;
+#ifdef GEKKO
+					if (satBudget[1])
+						satBudget[1]--;
+#endif
 
 					if (BSX.sat_stream2_queue == 0)
 					{
@@ -1074,10 +1140,15 @@ uint8 S9xGetBSXPPU (uint16 address)
 				}
 				else if (BSX.sat_stream2_loaded)
 				{
+#ifdef GEKKO
+					int c = BSXStreamGet(1);
+					BSX.PPU[0x2192 - BSXPPUBASE] = c < 0 ? 0xFF : c;
+#else
 					if (BSX.sat_stream2.eof())
 						BSX.PPU[0x2192 - BSXPPUBASE] = 0xFF;
 					else
 						BSX.PPU[0x2192 - BSXPPUBASE] = BSX.sat_stream2.get();
+#endif
 				}
 				t = BSX.PPU[0x2192 - BSXPPUBASE];
 			}
@@ -1410,11 +1481,16 @@ void S9xResetBSX (void)
 	BSX.sat_stream1_first = BSX.sat_stream2_first = FALSE;
 	BSX.sat_stream1_count = BSX.sat_stream2_count = 0;
 
+#ifdef GEKKO
+	BSXStreamClose(0);
+	BSXStreamClose(1);
+#else
     if (BSX.sat_stream1.is_open())
         BSX.sat_stream1.close();
 
     if (BSX.sat_stream2.is_open())
         BSX.sat_stream2.close();
+#endif
 
     if (Settings.BS)
 	    BSX_Map();

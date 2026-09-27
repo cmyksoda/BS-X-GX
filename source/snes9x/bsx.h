@@ -7,7 +7,9 @@
 #ifndef _BSX_H_
 #define _BSX_H_
 
+#ifndef GEKKO
 #include <fstream>
+#endif
 
 struct SBSX
 {
@@ -32,8 +34,10 @@ struct SBSX
 	bool	flash_bsr;
 	bool	flash_cmd_done;
 
+#ifndef GEKKO
 	std::ifstream	sat_stream1;
 	std::ifstream	sat_stream2;
+#endif
 
 	bool	sat_pf_latch1_enable, sat_dt_latch1_enable;
 	bool	sat_pf_latch2_enable, sat_dt_latch2_enable;

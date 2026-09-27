@@ -27,6 +27,7 @@
 #include "input.h"
 #include "memmanager.h"
 #include "persist.h"
+#include "bsxstream.h"
 
 #include "snes9x/snes9x.h"
 #include "snes9x/fxemu.h"
@@ -49,6 +50,7 @@ int main(int argc, char *argv[])
 	S9xInitSync(); // initialize frame sync
 	InitGUIThreads();
 	PersistInit();
+	BSXStreamInit(4 * 1024 * 1024);
 
 #ifdef HW_RVL
 	// store path app was loaded from
