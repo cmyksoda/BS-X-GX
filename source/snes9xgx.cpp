@@ -19,15 +19,13 @@
 #include "videofilters.h"
 #include "audio.h"
 #include "menu.h"
-#include "sram.h"
-#include "freeze.h"
 #include "preferences.h"
 #include "fileop.h"
-#include "filebrowser.h"
 #include "input.h"
 #include "memmanager.h"
 #include "persist.h"
 #include "bsxstream.h"
+#include "bsxboot.h"
 
 #include "snes9x/snes9x.h"
 #include "snes9x/fxemu.h"
@@ -52,11 +50,9 @@ int main(int argc, char *argv[])
 	PersistInit();
 	BSXStreamInit(4 * 1024 * 1024);
 
-#ifdef HW_RVL
 	// store path app was loaded from
 	if(argc > 0 && argv[0] != NULL)
 		CreateAppPath(argv[0]);
-#endif
 
 	while (1) // main loop
 	{
@@ -64,7 +60,6 @@ int main(int argc, char *argv[])
 		// since we're entering the menu
 		ResumeDeviceThread();
 		SwitchAudioMode(1);
-		SwitchMemoryModeMenu();
 
 		if(SNESROMSize == 0)
 			MainMenu(MENU_BSXBOOT);
@@ -74,19 +69,6 @@ int main(int argc, char *argv[])
 		if (firstRun)
 		{
 			firstRun = false;
-			switch (GCSettings.sfxOverclock)
-			{
-				case 0: Settings.SuperFXSpeedPerLine = 5823405; break;
-				case 1: Settings.SuperFXSpeedPerLine = 0.417 * 20.5e6; break;
-				case 2: Settings.SuperFXSpeedPerLine = 0.417 * 40.5e6; break;
-				case 3: Settings.SuperFXSpeedPerLine = 0.417 * 60.5e6; break;
-				case 4: Settings.SuperFXSpeedPerLine = 0.417 * 80.5e6; break;
-				case 5: Settings.SuperFXSpeedPerLine = 0.417 * 100.5e6; break;
-				case 6: Settings.SuperFXSpeedPerLine = 0.417 * 120.5e6; break;
-			}
-
-			if (GCSettings.sfxOverclock > 0)
-			S9xResetSuperFX();
 			S9xReset();
 
 			switch (GCSettings.Interpolation)
@@ -108,16 +90,13 @@ int main(int argc, char *argv[])
 		Settings.SkipFrames = (GCSettings.FrameSkip ? AUTO_FRAMERATE : 0);
 		Settings.AutoDisplayMessages = (Settings.DisplayFrameRate || Settings.DisplayTime ? true : false);
 		Settings.MultiPlayer5Master = (GCSettings.Controller == CTRL_PAD4 ? true : false);
-		Settings.SuperScopeMaster = (GCSettings.Controller == CTRL_SCOPE ? true : false);
 		Settings.MouseMaster = (GCSettings.Controller == CTRL_MOUSE || GCSettings.Controller == CTRL_MOUSE_PORT2 || GCSettings.Controller == CTRL_MOUSE_BOTH_PORTS);
-		Settings.JustifierMaster = (GCSettings.Controller == CTRL_JUST ? true : false);
 		SetControllers ();
 
 		// stop checking if devices were removed/inserted
 		// since we're starting emulation again
 		HaltDeviceThread();
 
-		SwitchMemoryModeGame();
 		AudioStart ();
 
 		FrameTimer = 0;
@@ -145,15 +124,12 @@ int main(int argc, char *argv[])
 			{
 				MenuRequested = false;
 				PersistFlushSync();
-				SwitchMemoryModeMenu();
 				TakeScreenshot();
 				ResetVideo_Menu();
 				break;
 			}
-			#ifdef HW_RVL
 			if(ShutdownRequested)
 				ExitApp();
-			#endif
 		} // emulation loop
 	} // main loop
 }
@@ -161,5 +137,5 @@ int main(int argc, char *argv[])
 void ExitApp() {
 	PersistFlushSync(); // before anything else can fail
 	SavePrefs(SILENT);
-	SystemExit(GCSettings.ExitAction, false);
+	SystemExit(GCSettings.ExitAction);
 }

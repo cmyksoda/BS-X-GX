@@ -11,6 +11,8 @@
 
 #include <stddef.h>
 
+extern unsigned long SNESROMSize;
+
 bool BSXLocateBIOS(char *outPath, size_t outLen);
 
 bool BSXLoadBIOS(const char *path);

@@ -43,9 +43,6 @@
 
 #ifdef GEKKO
 #include "../memmanager.h"
-#include "../filebrowser.h"
-extern int WiiFileLoader();
-extern void WiiSetupCheats();
 #endif
 
 #ifndef SET_UI_COLOR
@@ -1419,11 +1416,7 @@ bool8 CMemory::LoadROM (const char *filename)
         memset(ROM,0, MAX_ROM_SIZE);
         memset(&Multi, 0,sizeof(Multi));
         
-        #ifdef GEKKO
-			totalFileSize = WiiFileLoader();
-		#else
-			totalFileSize = FileLoader(ROM, filename, MAX_ROM_SIZE);
-		#endif
+        totalFileSize = FileLoader(ROM, filename, MAX_ROM_SIZE);
 
         if (!totalFileSize)
             return (FALSE);
@@ -1650,9 +1643,7 @@ bool8 CMemory::LoadROMInt (int32 ROMfillSize)
 	S9xReset();
 
 	S9xDeleteCheats();
-#ifdef GEKKO
-	WiiSetupCheats();
-#else
+#ifndef GEKKO
 	S9xLoadCheatFile(S9xGetFilename(".cht", CHEAT_DIR));
 #endif
 
@@ -4157,9 +4148,9 @@ void CMemory::CheckForAnyPatch (const char *rom_filename, bool8 header, int32 &r
 	FSTREAM patchfile = NULL;
 	long offset = header ? 512 : 0;
 
-	sprintf(patchpath[0], "%s%s.bps", browser.dir, Memory.ROMFilename);
-	sprintf(patchpath[1], "%s%s.ips", browser.dir, Memory.ROMFilename);
-	sprintf(patchpath[2], "%s%s.ups", browser.dir, Memory.ROMFilename);
+	sprintf(patchpath[0], "%s%s.bps", Memory.ROMFilePath, Memory.ROMFilename);
+	sprintf(patchpath[1], "%s%s.ips", Memory.ROMFilePath, Memory.ROMFilename);
+	sprintf(patchpath[2], "%s%s.ups", Memory.ROMFilePath, Memory.ROMFilename);
 
 	for(patchtype=0; patchtype<3; patchtype++)
 	{

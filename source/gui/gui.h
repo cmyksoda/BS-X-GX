@@ -58,10 +58,7 @@ extern FreeTypeGX *fontSystem[];
 #define SCROLL_DELAY_INITIAL	200000
 #define SCROLL_DELAY_LOOP		30000
 #define SCROLL_DELAY_DECREASE	300
-#define FILE_PAGESIZE 			10
 #define PAGESIZE 				8
-#define SAVELISTSIZE 			6
-#define MAX_SAVES 				100
 #define MAX_OPTIONS 			150
 #define MAX_KEYBOARD_DISPLAY	32
 
@@ -946,124 +943,6 @@ class GuiOptionBrowser : public GuiElement
 		GuiTrigger * trigA;
 		GuiTrigger * trig2;
 
-		bool listChanged;
-};
-
-typedef struct _savelist {
-	int length;
-	char filename[MAX_SAVES+1][256];
-	GuiImageData * previewImg[MAX_SAVES+1];
-	char date[MAX_SAVES+1][20];
-	char time[MAX_SAVES+1][10];
-	int type[MAX_SAVES+1];
-	int files[2][MAX_SAVES+1];
-} SaveList;
-
-//!Display a list of game save files, with screenshots and file information
-class GuiSaveBrowser : public GuiElement
-{
-	public:
-		GuiSaveBrowser(int w, int h, SaveList * l, int a);
-		~GuiSaveBrowser();
-		int GetClickedSave();
-		void ResetState();
-		void SetFocus(int f);
-		void Draw();
-		void Update(GuiTrigger * t);
-	protected:
-		int selectedItem;
-		int action;
-		int listOffset;
-		SaveList * saves;
-		GuiButton * saveBtn[SAVELISTSIZE];
-		GuiText * saveDate[SAVELISTSIZE];
-		GuiText * saveTime[SAVELISTSIZE];
-		GuiText * saveType[SAVELISTSIZE];
-
-		GuiImage * saveBgImg[SAVELISTSIZE];
-		GuiImage * saveBgOverImg[SAVELISTSIZE];
-		GuiImage * savePreviewImg[SAVELISTSIZE];
-
-		GuiButton * arrowUpBtn;
-		GuiButton * arrowDownBtn;
-
-		GuiImage * scrollbarImg;
-		GuiImage * arrowDownImg;
-		GuiImage * arrowDownOverImg;
-		GuiImage * arrowUpImg;
-		GuiImage * arrowUpOverImg;
-
-		GuiImageData * gameSave;
-		GuiImageData * gameSaveOver;
-		GuiImageData * gameSaveBlank;
-		GuiImageData * scrollbar;
-		GuiImageData * arrowDown;
-		GuiImageData * arrowDownOver;
-		GuiImageData * arrowUp;
-		GuiImageData * arrowUpOver;
-
-		GuiSound * btnSoundOver;
-		GuiSound * btnSoundClick;
-		GuiTrigger * trigA;
-		GuiTrigger * trig2;
-
-		bool saveBtnLastOver[SAVELISTSIZE];
-};
-
-//!Display a list of files
-class GuiFileBrowser : public GuiElement
-{
-	public:
-		GuiFileBrowser(int w, int h);
-		~GuiFileBrowser();
-		void ResetState();
-		void SetFocus(int f);
-		void Draw();
-		void DrawTooltip();
-		void TriggerUpdate();
-		void Update(GuiTrigger * t);
-		GuiButton * fileList[FILE_PAGESIZE];
-	protected:
-		GuiText * fileListText[FILE_PAGESIZE];
-		GuiImage * fileListBg[FILE_PAGESIZE];
-		GuiImage * fileListIcon[FILE_PAGESIZE];
-
-		GuiButton * arrowUpBtn;
-		GuiButton * arrowDownBtn;
-		GuiButton * scrollbarBoxBtn;
-
-		GuiImage * bgFileSelectionImg;
-		GuiImage * scrollbarImg;
-		GuiImage * arrowDownImg;
-		GuiImage * arrowDownOverImg;
-		GuiImage * arrowUpImg;
-		GuiImage * arrowUpOverImg;
-		GuiImage * scrollbarBoxImg;
-		GuiImage * scrollbarBoxOverImg;
-
-		GuiImageData * bgFileSelection;
-		GuiImageData * bgFileSelectionEntry;
-		GuiImageData * iconFolder;
-		GuiImageData * iconSD;
-		GuiImageData * iconUSB;
-		GuiImageData * iconDVD;
-		GuiImageData * iconSMB;
-		GuiImageData * scrollbar;
-		GuiImageData * arrowDown;
-		GuiImageData * arrowDownOver;
-		GuiImageData * arrowUp;
-		GuiImageData * arrowUpOver;
-		GuiImageData * scrollbarBox;
-		GuiImageData * scrollbarBoxOver;
-
-		GuiSound * btnSoundOver;
-		GuiSound * btnSoundClick;
-		GuiTrigger * trigA;
-		GuiTrigger * trig2;
-		GuiTrigger * trigHeldA;
-
-		int selectedItem;
-		int numEntries;
 		bool listChanged;
 };
 

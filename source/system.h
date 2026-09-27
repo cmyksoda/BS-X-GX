@@ -22,14 +22,8 @@ enum {
 	EXITACTION_WII_LENGTH
 };
 
-enum {
-	EXITACTION_GC_RETURN_TO_LOADER = 0,
-	EXITACTION_GC_REBOOT,
-	EXITACTION_GC_LENGTH
-};
-
 void SystemInit();
-void SystemExit(int exitAction, bool autoloadedGame);
+void SystemExit(int exitAction);
 void ShutdownWii();
 bool SupportedIOS(u32 ios);
 bool SaneIOS(u32 ios);
@@ -37,6 +31,5 @@ char * getConsoleDetails();
 char * getMemoryFreeInfo();
 extern int ShutdownRequested;
 extern int ResetRequested;
-extern int ExitRequested;
 
 #endif

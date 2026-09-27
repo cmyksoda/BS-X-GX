@@ -14,10 +14,7 @@
 #include <gccore.h>
 #include <sys/iosupport.h>
 
-#ifdef HW_RVL
-#include <di/di.h>
 #include <wiiuse/wpad.h>
-#endif
 
 #include "system.h"
 #include "video.h"
@@ -37,7 +34,6 @@ s32 __STM_Init();
 
 int ShutdownRequested = 0;
 int ResetRequested = 0;
-int ExitRequested = 0;
 static bool isWiiVC = false;
 
 /****************************************************************************
@@ -100,7 +96,6 @@ static void USBGeckoOutput()
  * Startup / Shutdown / Reboot / Exit
  ***************************************************************************/
 
-#ifdef HW_RVL
 void ShutdownCB()
 {
 	ShutdownRequested = 1;
@@ -109,36 +104,8 @@ void ResetCB()
 {
 	ResetRequested = 1;
 }
-#endif
-
-#ifdef HW_DOL
-/****************************************************************************
- * ipl_set_config
- * lowlevel Qoob Modchip disable
- ***************************************************************************/
-
-static void ipl_set_config(unsigned char c)
-{
-	volatile unsigned long* exi = (volatile unsigned long*)0xCC006800;
-	unsigned long val,addr;
-	addr=0xc0000000;
-	val = c << 24;
-	exi[0] = ((((exi[0]) & 0x405) | 256) | 48);	//select IPL
-	//write addr of IPL
-	exi[0 * 5 + 4] = addr;
-	exi[0 * 5 + 3] = ((4 - 1) << 4) | (1 << 2) | 1;
-	while (exi[0 * 5 + 3] & 1);
-	//write the ipl we want to send
-	exi[0 * 5 + 4] = val;
-	exi[0 * 5 + 3] = ((4 - 1) << 4) | (1 << 2) | 1;
-	while (exi[0 * 5 + 3] & 1);
-
-	exi[0] &= 0x405;	//deselect IPL
-}
-#endif
 
 void SystemInit() {
-	#ifdef HW_RVL
 	L2Enhance();
 
 	u32 ios = IOS_GetVersion();
@@ -150,9 +117,6 @@ void SystemInit() {
 		if(SupportedIOS(preferred))
 			IOS_ReloadIOS(preferred);
 	}
-	#else
-	ipl_set_config(6); // disable Qoob modchip
-	#endif
 
 	USBGeckoOutput();
 	__exception_setreload(8);
@@ -161,7 +125,6 @@ void SystemInit() {
 	InitVideo();
 	InitAudio();
 
-	#ifdef HW_RVL
 	// Wii Power/Reset buttons
 	__STM_Close();
 	__STM_Init();
@@ -172,11 +135,7 @@ void SystemInit() {
 	isWiiVC = WiiDRC_Inited();
 	WPAD_Init();
 	WPAD_SetPowerButtonCallback((WPADShutdownCallback)ShutdownCB);
-	DI_Init();
 	USBStorage_Initialize();
-	#else
-	DVD_Init (); // Initialize DVD subsystem (GameCube only)
-	#endif
 
 	SetupPads();
 	InitDeviceThread();
@@ -191,41 +150,16 @@ static void ExitCleanup()
 
 	HaltDeviceThread();
 	UnmountAllFAT();
-
-#ifdef HW_RVL
-	DI_Close();
-#endif
 }
 
-#ifdef HW_DOL
-	#define PSOSDLOADID 0x7c6000a6
-	int *psoid = (int *) 0x80001800;
-	void (*PSOReload) () = (void (*)()) 0x80001800;
-#endif
-
-void SystemExit(int exitAction, bool autoloadedGame)
+void SystemExit(int exitAction)
 {
-#ifdef HW_RVL
 	ShutoffRumble();
-#endif
 
 	ExitCleanup();
 
-#ifdef HW_RVL
 	if(ShutdownRequested) {
 		SYS_ResetSystem(SYS_POWEROFF_STANDBY, 0, FALSE);
-	}
-	else if(autoloadedGame) {
-		if( !!*(u32*)0x80001800 )
-		{
-			// Were we launched via HBC? (or via WiiFlow's stub replacement)
-			exit(1);
-		}
-		else
-		{
-			// Wii channel support
-			SYS_ResetSystem(SYS_RETURNTOMENU, 0, FALSE);
-		}
 	}
 	else {
 		if(exitAction == EXITACTION_WII_AUTO) // Auto
@@ -258,33 +192,15 @@ void SystemExit(int exitAction, bool autoloadedGame)
 			exit(0);
 		}
 	}
-#else
-	if(exitAction == EXITACTION_GC_REBOOT) // Reboot
-	{
-		SYS_ResetSystem(SYS_RETURNTOMENU, 0, FALSE);
-	}
-	else // Exit to Loader
-	{
-		if (psoid[0] == PSOSDLOADID)
-			PSOReload();
-		else
-			exit(0);
-	}
-#endif
 }
 
 typedef enum {
-#ifdef HW_DOL
-    CONSOLE_GAMECUBE,
-#else
     CONSOLE_WII,
 	CONSOLE_WIIU_VWII,
 	CONSOLE_WIIU_WIIVC,
 	CONSOLE_DOLPHIN
-#endif
 } ConsoleType;
 
-#ifdef HW_RVL
 static inline bool IsWiiU() {
 	return (*(vu16*)0xCD8005A0 == 0xCAFE) || (*(vu32*)0xCD8000A0 & 0x00080000);
 }
@@ -299,11 +215,7 @@ static inline bool IsDolphinEmulator() {
 
     return false;
 }
-#endif
 static ConsoleType GetConsoleType() {
-#ifdef HW_DOL
-	return CONSOLE_GAMECUBE;
-#else
 	if (IsDolphinEmulator()) {
 		return CONSOLE_DOLPHIN;
 	}
@@ -316,13 +228,9 @@ static ConsoleType GetConsoleType() {
 	}
 
 	return CONSOLE_WII;
-#endif
 }
 
 static u32 GetCPUSpeedMHz() {
-#ifdef HW_DOL
-	return 486; // GameCube (162 MHz bus * 3x multiplier)
-#else
 	u32 busClock = SYS_GetBusFrequency(); // ~243 MHz on Wii/vWii
 	u32 multiplier = SYS_GetCoreMultiplier(); // 3x standard, 5x+ under unlocked vWii/VC
 
@@ -331,7 +239,6 @@ static u32 GetCPUSpeedMHz() {
 		return (u32)(coreClockHz / 1000000);
 	}
 	return 729; // Fallback
-#endif
 }
 
 char * getConsoleDetails() {
@@ -346,9 +253,6 @@ char * getConsoleDetails() {
         snprintf(speedStr, sizeof(speedStr), "%u MHz", mhz);
     }
 
-#ifdef HW_DOL
-    snprintf(description, sizeof(description), "GameCube (%s)", speedStr);
-#else
 	switch(type) {
 		case CONSOLE_WII:
 			snprintf(description, sizeof(description), "Wii (%s), IOS: %d", speedStr, IOS_GetVersion());
@@ -366,7 +270,6 @@ char * getConsoleDetails() {
 			snprintf(description, sizeof(description), "Dolphin Emulator");
 			break;
     }
-#endif
 
     return description;
 }
@@ -375,13 +278,6 @@ char * getMemoryFreeInfo() {
     static char memoryFreeInfo[50];
     float mem1_mb = 0.0f;
 
-#ifdef HW_DOL
-    // GameCube uses standard libogc arena allocation
-    uint32_t mem1_bytes = SYS_GetArena1Size();
-    mem1_mb = (float)mem1_bytes / (1024.0f * 1024.0f);
-
-    snprintf(memoryFreeInfo, sizeof(memoryFreeInfo), "MEM1 free: %.2fMB", mem1_mb);
-#else
     // Wii uses libogc2's malloc_wii split-heap mspace wrapper.
     // fordblks tracks the actual free memory inside the MEM1 pool.
     struct mallinfo mi = mallinfo();
@@ -391,7 +287,6 @@ char * getMemoryFreeInfo() {
     float mem2_mb = (float)mem2_bytes / (1024.0f * 1024.0f);
 
     snprintf(memoryFreeInfo, sizeof(memoryFreeInfo), "MEM1 free: %.2fMB, MEM2 free: %.2fMB", mem1_mb, mem2_mb);
-#endif
 
     return memoryFreeInfo;
 }
@@ -399,7 +294,6 @@ char * getMemoryFreeInfo() {
 /****************************************************************************
  * IOS Check
  ***************************************************************************/
-#ifdef HW_RVL
 bool SupportedIOS(u32 ios)
 {
 	if(IsDolphinEmulator()) {
@@ -474,4 +368,3 @@ bool SaneIOS(u32 ios)
     free(titles);
 	return res;
 }
-#endif

@@ -235,7 +235,7 @@ static void BindMemory()
 
 	for(int i = 0; i < BLOB_COUNT; i++)
 		snprintf(blobs[i].path, MAXPATHLEN, "%s%s/%s",
-			pathPrefix[GCSettings.SaveMethod], GCSettings.SaveFolder, blobs[i].filename);
+			pathPrefix[GCSettings.SaveMethod], SAVEFOLDER, blobs[i].filename);
 }
 
 bool PersistLoadAll(bool silent)
@@ -246,6 +246,9 @@ bool PersistLoadAll(bool silent)
 	BindMemory();
 
 	HaltDeviceThread();
+
+	Memory.ClearSRAM();
+	LoadBlobFile(blobs[BLOB_SRAM]);
 
 	// a new pack is erased flash
 	if(!LoadBlobFile(blobs[BLOB_MEMPACK]))
@@ -309,22 +312,6 @@ void PersistTick()
 			Stage(b, a);
 		b.lastAdler = a;
 	}
-}
-
-bool PersistDirty()
-{
-	if(!loaded)
-		return false;
-	if(BSXFlashDirty)
-		return true;
-	for(int i = 0; i < BLOB_COUNT; i++)
-	{
-		if(blobs[i].pending)
-			return true;
-		if(Checksum(blobs[i]) != blobs[i].savedAdler)
-			return true;
-	}
-	return false;
 }
 
 void PersistFlushSync()

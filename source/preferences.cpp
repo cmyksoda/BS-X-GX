@@ -22,7 +22,6 @@
 #include "fileop.h"
 #include "videofilters.h"
 #include "video.h"
-#include "filebrowser.h"
 #include "input.h"
 #include "button_mapping.h"
 
@@ -128,26 +127,12 @@ preparePrefsData ()
 
 	createXMLSection("File", "File Settings");
 
-	createXMLSetting("AutoLoad", "Auto Load", toStr(GCSettings.AutoLoad));
-	createXMLSetting("AutoSave", "Auto Save", toStr(GCSettings.AutoSave));
 	createXMLSetting("LoadMethod", "Load Method", toStr(GCSettings.LoadMethod));
 	createXMLSetting("SaveMethod", "Save Method", toStr(GCSettings.SaveMethod));
-	createXMLSetting("LoadFolder", "Load Folder", GCSettings.LoadFolder);
-	createXMLSetting("LastFileLoaded", "Last File Loaded", GCSettings.LastFileLoaded);
-	createXMLSetting("SaveFolder", "Save Folder", GCSettings.SaveFolder);
-	createXMLSetting("AppendAuto", "Append Auto to .SAV Files", BtoStr(GCSettings.AppendAuto));
-	createXMLSetting("CheatFolder", "Cheats Folder", GCSettings.CheatFolder);
-	createXMLSetting("ScreenshotsFolder", "Screenshots Folder", GCSettings.ScreenshotsFolder);
-	createXMLSetting("CoverFolder", "Covers Folder", GCSettings.CoverFolder);
-	createXMLSetting("ArtworkFolder", "Artwork Folder", GCSettings.ArtworkFolder);
 	
 	createXMLSection("Network", "Network Settings");
 
 	createXMLSetting("stationURL", "Station URL (host[:port])", GCSettings.stationURL);
-	createXMLSetting("smbip", "Share Computer IP", GCSettings.smbip);
-	createXMLSetting("smbshare", "Share Name", GCSettings.smbshare);
-	createXMLSetting("smbuser", "Share Username", GCSettings.smbuser);
-	createXMLSetting("smbpwd", "Share Password", GCSettings.smbpwd);
 
 	createXMLSection("Video", "Video Settings");
 
@@ -164,26 +149,20 @@ preparePrefsData ()
 
 	createXMLSection("Emulation", "Emulation Settings");
 
-	createXMLSetting("crosshair", "Crosshair", BtoStr(GCSettings.crosshair));
 	createXMLSetting("HiResolution", "SNES Hi-Res Mode", BtoStr(GCSettings.HiResolution));
 	createXMLSetting("SpriteLimit", "Sprites per-line Limit", BtoStr(GCSettings.SpriteLimit));
 	createXMLSetting("FrameSkip", "Frame Skipping", BtoStr(GCSettings.FrameSkip));
-	createXMLSetting("sfxOverclock", "SuperFX Overclock", toStr(GCSettings.sfxOverclock));
 	createXMLSetting("Interpolation", "Interpolation", toStr(GCSettings.Interpolation));
 	createXMLSetting("MuteAudio", "Mute", BtoStr(GCSettings.MuteAudio));
 
 	createXMLSection("Menu", "Menu Settings");
 
-#ifdef HW_RVL
 	createXMLSetting("WiimoteOrientation", "Wiimote Orientation", toStr(GCSettings.WiimoteOrientation));
-#endif
 	createXMLSetting("ExitAction", "Exit Action", toStr(GCSettings.ExitAction));
 	createXMLSetting("MusicVolume", "Music Volume", toStr(GCSettings.MusicVolume));
 	createXMLSetting("SFXVolume", "Sound Effects Volume", toStr(GCSettings.SFXVolume));
 	createXMLSetting("Rumble", "Rumble", BtoStr(GCSettings.Rumble));
 	createXMLSetting("language", "Language", toStr(GCSettings.language));
-	createXMLSetting("PreviewImage", "Preview Image", toStr(GCSettings.PreviewImage));
-	createXMLSetting("HideSRAMSaving", "Hide SRAM Saving", BtoStr(GCSettings.HideSRAMSaving));
 	
 	createXMLSection("Controller", "Controller Settings");
 
@@ -194,25 +173,13 @@ preparePrefsData ()
 	createXMLSetting("MapABXYRightStick", "Map ABXY Right Stick", BtoStr(GCSettings.MapABXYRightStick));
 
 	createXMLController(btnmap[CTRL_PAD][CTRLR_GCPAD], "btnmap_pad_gcpad", "SNES Pad - GameCube Controller");
-#ifdef HW_RVL
 	createXMLController(btnmap[CTRL_PAD][CTRLR_WIIMOTE], "btnmap_pad_wiimote", "SNES Pad - Wiimote");
 	createXMLController(btnmap[CTRL_PAD][CTRLR_CLASSIC], "btnmap_pad_classic", "SNES Pad - Classic Controller");
 	createXMLController(btnmap[CTRL_PAD][CTRLR_WUPC], "btnmap_pad_wupc", "SNES Pad - Wii U Pro Controller");
 	createXMLController(btnmap[CTRL_PAD][CTRLR_WIIDRC], "btnmap_pad_wiidrc", "SNES Pad - Wii U Gamepad");
 	createXMLController(btnmap[CTRL_PAD][CTRLR_NUNCHUK], "btnmap_pad_nunchuk", "SNES Pad - Nunchuk + Wiimote");
-#endif
-	createXMLController(btnmap[CTRL_SCOPE][CTRLR_GCPAD], "btnmap_scope_gcpad", "Superscope - GameCube Controller");
-#ifdef HW_RVL
-	createXMLController(btnmap[CTRL_SCOPE][CTRLR_WIIMOTE], "btnmap_scope_wiimote", "Superscope - Wiimote");
-#endif
 	createXMLController(btnmap[CTRL_MOUSE][CTRLR_GCPAD], "btnmap_mouse_gcpad", "Mouse - GameCube Controller");
-#ifdef HW_RVL
 	createXMLController(btnmap[CTRL_MOUSE][CTRLR_WIIMOTE], "btnmap_mouse_wiimote", "Mouse - Wiimote");
-#endif
-	createXMLController(btnmap[CTRL_JUST][CTRLR_GCPAD], "btnmap_just_gcpad", "Justifier - GameCube Controller");
-#ifdef HW_RVL
-	createXMLController(btnmap[CTRL_JUST][CTRLR_WIIMOTE], "btnmap_just_wiimote", "Justifier - Wiimote");
-#endif
 	int datasize = mxmlSaveString(xml, (char *)savebuffer, SAVEBUFFERSIZE, XMLSaveCallback);
 
 	mxmlDelete(xml);
@@ -314,26 +281,12 @@ decodePrefsData ()
 
 	// File Settings
 
-	loadXMLSetting(&GCSettings.AutoLoad, "AutoLoad");
-	loadXMLSetting(&GCSettings.AutoSave, "AutoSave");
 	loadXMLSetting(&GCSettings.LoadMethod, "LoadMethod");
 	loadXMLSetting(&GCSettings.SaveMethod, "SaveMethod");
-	loadXMLSetting(GCSettings.LoadFolder, "LoadFolder", sizeof(GCSettings.LoadFolder));
-	loadXMLSetting(GCSettings.LastFileLoaded, "LastFileLoaded", sizeof(GCSettings.LastFileLoaded));
-	loadXMLSetting(GCSettings.SaveFolder, "SaveFolder", sizeof(GCSettings.SaveFolder));
-	loadXMLSetting(&GCSettings.AppendAuto, "AppendAuto");
-	loadXMLSetting(GCSettings.CheatFolder, "CheatFolder", sizeof(GCSettings.CheatFolder));
-	loadXMLSetting(GCSettings.ScreenshotsFolder, "ScreenshotsFolder", sizeof(GCSettings.ScreenshotsFolder));
-	loadXMLSetting(GCSettings.CoverFolder, "CoverFolder", sizeof(GCSettings.CoverFolder));
-	loadXMLSetting(GCSettings.ArtworkFolder, "ArtworkFolder", sizeof(GCSettings.ArtworkFolder));
 
 	// Network Settings
 
 	loadXMLSetting(GCSettings.stationURL, "stationURL", sizeof(GCSettings.stationURL));
-	loadXMLSetting(GCSettings.smbip, "smbip", sizeof(GCSettings.smbip));
-	loadXMLSetting(GCSettings.smbshare, "smbshare", sizeof(GCSettings.smbshare));
-	loadXMLSetting(GCSettings.smbuser, "smbuser", sizeof(GCSettings.smbuser));
-	loadXMLSetting(GCSettings.smbpwd, "smbpwd", sizeof(GCSettings.smbpwd));
 
 	// Video Settings
 
@@ -349,8 +302,6 @@ decodePrefsData ()
 	loadXMLSetting(&GCSettings.videoYshift, "videoYshift");
 
 	// Emulation Settings
-	loadXMLSetting(&GCSettings.sfxOverclock, "sfxOverclock");
-	loadXMLSetting(&GCSettings.crosshair, "crosshair");
 	loadXMLSetting(&GCSettings.HiResolution, "HiResolution");
 	loadXMLSetting(&GCSettings.SpriteLimit, "SpriteLimit");
 	loadXMLSetting(&GCSettings.FrameSkip, "FrameSkip");
@@ -365,8 +316,6 @@ decodePrefsData ()
 	loadXMLSetting(&GCSettings.SFXVolume, "SFXVolume");
 	loadXMLSetting(&GCSettings.Rumble, "Rumble");
 	loadXMLSetting(&GCSettings.language, "language");
-	loadXMLSetting(&GCSettings.PreviewImage, "PreviewImage");
-	loadXMLSetting(&GCSettings.HideSRAMSaving, "HideSRAMSaving");
 
 	// Controller Settings
 
@@ -382,12 +331,8 @@ decodePrefsData ()
 	loadXMLController(btnmap[CTRL_PAD][CTRLR_WUPC], "btnmap_pad_wupc");
 	loadXMLController(btnmap[CTRL_PAD][CTRLR_WIIDRC], "btnmap_pad_wiidrc");
 	loadXMLController(btnmap[CTRL_PAD][CTRLR_NUNCHUK], "btnmap_pad_nunchuk");
-	loadXMLController(btnmap[CTRL_SCOPE][CTRLR_GCPAD], "btnmap_scope_gcpad");
-	loadXMLController(btnmap[CTRL_SCOPE][CTRLR_WIIMOTE], "btnmap_scope_wiimote");
 	loadXMLController(btnmap[CTRL_MOUSE][CTRLR_GCPAD], "btnmap_mouse_gcpad");
 	loadXMLController(btnmap[CTRL_MOUSE][CTRLR_WIIMOTE], "btnmap_mouse_wiimote");
-	loadXMLController(btnmap[CTRL_JUST][CTRLR_GCPAD], "btnmap_just_gcpad");
-	loadXMLController(btnmap[CTRL_JUST][CTRLR_WIIMOTE], "btnmap_just_wiimote");
 
 	mxmlDelete(xml);
 	return true;
@@ -406,15 +351,6 @@ void FixInvalidSettings()
 	if(!isValidSaveDevice(GCSettings.SaveMethod))
 		GCSettings.SaveMethod = DEVICE_AUTO;
 
-	if(strlen(GCSettings.smbshare) == 0 || strlen(GCSettings.smbip) == 0) {
-		if(GCSettings.LoadMethod == DEVICE_SMB) {
-			GCSettings.LoadMethod = DEVICE_AUTO;
-		}
-		if(GCSettings.SaveMethod == DEVICE_SMB) {
-			GCSettings.SaveMethod = DEVICE_AUTO;
-		}
-	}
-
 	if(!(GCSettings.videoZoomHor > 0.5 && GCSettings.videoZoomHor < 1.5))
 		GCSettings.videoZoomHor = 1.0;
 	if(!(GCSettings.videoZoomVert > 0.5 && GCSettings.videoZoomVert < 1.5))
@@ -431,10 +367,6 @@ void FixInvalidSettings()
 		GCSettings.language = LANG_ENGLISH;
 	if(GCSettings.Controller > CTRL_PAD4 || GCSettings.Controller < CTRL_MOUSE)
 		GCSettings.Controller = CTRL_PAD2;
-
-	// no longer settings: an old settings.xml mustn't strand the saves or overclock a SuperFX-less BS-X
-	sprintf(GCSettings.SaveFolder, "%s/%s", APPFOLDER, saveFolder[SAVEFOLDER_SAVES].name);
-	GCSettings.sfxOverclock = SFXOVERCLOCK_OFF;
 	if(!(GCSettings.videoHardwareSoften >= VIDEO_HW_SOFTEN_OFF && GCSettings.videoHardwareSoften < VIDEO_HW_SOFTEN_LENGTH))
 		GCSettings.videoHardwareSoften = VIDEO_HW_SOFTEN_AUTO;
 	if(!(GCSettings.videoAspectRatioCorrection >= VIDEO_ASPECT_RATIO_CORRECTION_NONE && GCSettings.videoAspectRatioCorrection < VIDEO_ASPECT_RATIO_CORRECTION_LENGTH))
@@ -459,15 +391,7 @@ DefaultSettings ()
 
 	GCSettings.LoadMethod = DEVICE_AUTO;
 	GCSettings.SaveMethod = DEVICE_AUTO;
-	sprintf (GCSettings.LoadFolder, "%s/%s", APPFOLDER, loadFolder[LOADFOLDER_ROMS].name); // Path to game files
-	sprintf (GCSettings.SaveFolder, "%s/%s", APPFOLDER, saveFolder[SAVEFOLDER_SAVES].name); // Path to save files
-	sprintf (GCSettings.CheatFolder, "%s/%s", APPFOLDER, saveFolder[SAVEFOLDER_CHEATS].name); // Path to cheat files
-	sprintf (GCSettings.ScreenshotsFolder, "%s/%s", APPFOLDER, loadFolder[LOADFOLDER_SCREENSHOTS].name); // Path to screenshots files
-	sprintf (GCSettings.CoverFolder, "%s/%s", APPFOLDER, loadFolder[LOADFOLDER_COVERS].name); // Path to cover files
-	sprintf (GCSettings.ArtworkFolder, "%s/%s", APPFOLDER, loadFolder[LOADFOLDER_ARTWORK].name); // Path to artwork files
 	GCSettings.stationURL[0] = 0;
-	GCSettings.AutoLoad = true;
-	GCSettings.AutoSave = true;
 
 	GCSettings.Controller = CTRL_PAD2;
 
@@ -477,42 +401,26 @@ DefaultSettings ()
 	GCSettings.videoScanlines = false;
 	GCSettings.videoUpscalingFilter = FILTER_NONE;
 
-#ifdef HW_RVL
 	if (CONF_GetAspectRatio() == CONF_ASPECT_16_9)
 		GCSettings.videoAspectRatioCorrection = VIDEO_ASPECT_RATIO_CORRECTION_16_9;
 	else
 		GCSettings.videoAspectRatioCorrection = VIDEO_ASPECT_RATIO_CORRECTION_NONE;
-#else
-	GCSettings.videoAspectRatioCorrection = VIDEO_ASPECT_RATIO_CORRECTION_NONE;
-#endif
 
 	GCSettings.videoZoomHor = 1.0; // horizontal zoom level
 	GCSettings.videoZoomVert = 1.0; // vertical zoom level
 	GCSettings.videoXshift = 0; // horizontal video shift
 	GCSettings.videoYshift = 0; // vertical video shift
-	GCSettings.crosshair = true;
 
 	GCSettings.WiimoteOrientation = WIIMOTE_ORIENTATION_VERTICAL;
-#ifdef HW_RVL
 	GCSettings.ExitAction = EXITACTION_WII_AUTO;
-#else
-	GCSettings.ExitAction = EXITACTION_GC_RETURN_TO_LOADER;
-#endif
-	GCSettings.AutoloadGame = false;
 	GCSettings.MusicVolume = 20;
 	GCSettings.SFXVolume = 40;
 	GCSettings.Rumble = true;
-	GCSettings.PreviewImage = PREVIEWIMAGE_COVER;
-	GCSettings.HideSRAMSaving = false;
 	
-#ifdef HW_RVL
 	GCSettings.language = CONF_GetLanguage();
 
 	if(GCSettings.language == LANG_TRAD_CHINESE)
 		GCSettings.language = LANG_SIMP_CHINESE;
-#else
-	GCSettings.language = SYS_GetLanguage() + LANG_ENGLISH;
-#endif
 
 	/****************** SNES9x Settings ***********************/
 
@@ -522,8 +430,6 @@ DefaultSettings ()
 	// General
 
 	Settings.MouseMaster = false;
-	Settings.SuperScopeMaster = false;
-	Settings.JustifierMaster = false;
 	Settings.MultiPlayer5Master = false;
 	Settings.DontSaveOopsSnapshot = true;
 	Settings.ApplyCheats = true;
@@ -563,7 +469,6 @@ DefaultSettings ()
 	Settings.FrameTimePAL = 20000;
 	Settings.FrameTimeNTSC = 16667;
 
-	GCSettings.sfxOverclock = 0;
 	/* Initialize Super FX CPU to normal speed by default */
 	Settings.SuperFXSpeedPerLine = 5823405;
 	
@@ -698,20 +603,12 @@ bool LoadPrefs()
 	char filepath[5][MAXPATHLEN];
 	int numDevices;
 
-#ifdef HW_RVL
 	numDevices = 5;
 	sprintf(filepath[0], "%s", appPath);
 	sprintf(filepath[1], "sd:/apps/%s", APPFOLDER);
 	sprintf(filepath[2], "usb:/apps/%s", APPFOLDER);
 	sprintf(filepath[3], "sd:/%s", APPFOLDER);
 	sprintf(filepath[4], "usb:/%s", APPFOLDER);
-#else
-	numDevices = 4;
-	sprintf(filepath[0], "carda:/%s", APPFOLDER);
-	sprintf(filepath[1], "cardb:/%s", APPFOLDER);
-	sprintf(filepath[2], "port2:/%s", APPFOLDER);
-	sprintf(filepath[3], "gcloader:/%s", APPFOLDER);
-#endif
 
 	for(int i=0; i<numDevices; i++) {
 		prefFound = LoadPrefsFromMethod(filepath[i]);
@@ -730,61 +627,27 @@ bool LoadPrefs()
 		ResetVideo_Menu();
 	}
 
-#ifdef HW_RVL
 	bg_music = (u8 * )bg_music_ogg;
 	bg_music_size = bg_music_ogg_size;
 	LoadBgMusic();
-#endif
 
 	ChangeLanguage();
 	return true;
 }
 
-void CreatePathWithPrefix(int device, const char* folder) {
-    char fullPath[MAXPATHLEN];
-    MakeFilePathForFolderPath(fullPath, device, folder);
-    CreateDirectory(fullPath);
-}
-
 void CreateMissingDirectories() {
-    char defaultFolder[MAXPATHLEN];
+	char path[MAXPATHLEN];
 
-    if (GCSettings.SaveMethod > DEVICE_AUTO && ChangeInterface(GCSettings.SaveMethod, NOTSILENT)) {
-        const char* savePointers[] = { GCSettings.SaveFolder, GCSettings.CheatFolder };
+	if (GCSettings.SaveMethod > DEVICE_AUTO && ChangeInterface(GCSettings.SaveMethod, NOTSILENT)) {
+		sprintf(path, "%s%s", pathPrefix[GCSettings.SaveMethod], APPFOLDER);
+		CreateDirectory(path);
+		sprintf(path, "%s%s", pathPrefix[GCSettings.SaveMethod], SAVEFOLDER);
+		CreateDirectory(path);
+	}
 
-        for (int i = 0; i < SAVEFOLDER_LENGTH; i++) {
-            const char* currentPath = savePointers[i];
-
-            if (strncmp(currentPath, APPFOLDER, strlen(APPFOLDER)) == 0) {
-                CreatePathWithPrefix(GCSettings.SaveMethod, APPFOLDER);
-            }
-
-            GetDefaultFolderPath(defaultFolder, saveFolder[i].name);
-            if (strcmp(currentPath, defaultFolder) == 0) {
-                CreatePathWithPrefix(GCSettings.SaveMethod, currentPath);
-            }
-        }
-    }
-
-    if (GCSettings.LoadMethod > DEVICE_AUTO && GCSettings.LoadMethod != DEVICE_DVD && ChangeInterface(GCSettings.LoadMethod, NOTSILENT)) {
-        const char* loadPointers[] = {
-            GCSettings.LoadFolder,
-            GCSettings.ScreenshotsFolder,
-            GCSettings.CoverFolder,
-            GCSettings.ArtworkFolder
-        };
-
-        for (int i = 0; i < LOADFOLDER_LENGTH; i++) {
-            const char* currentPath = loadPointers[i];
-
-            if (strncmp(currentPath, APPFOLDER, strlen(APPFOLDER)) == 0) {
-                CreatePathWithPrefix(GCSettings.LoadMethod, APPFOLDER);
-            }
-
-            GetDefaultFolderPath(defaultFolder, loadFolder[i].name);
-            if (strcmp(currentPath, defaultFolder) == 0) {
-                CreatePathWithPrefix(GCSettings.LoadMethod, currentPath);
-            }
-        }
-    }
+	// where the BS-X BIOS goes
+	if (GCSettings.LoadMethod > DEVICE_AUTO && ChangeInterface(GCSettings.LoadMethod, NOTSILENT)) {
+		sprintf(path, "%s%s", pathPrefix[GCSettings.LoadMethod], APPFOLDER);
+		CreateDirectory(path);
+	}
 }

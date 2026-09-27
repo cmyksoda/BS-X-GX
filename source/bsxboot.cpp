@@ -11,8 +11,6 @@
 
 #include "snes9xgx.h"
 #include "fileop.h"
-#include "filebrowser.h"	// SNESROMSize
-#include "sram.h"
 #include "persist.h"
 #include "bsxboot.h"
 
@@ -22,6 +20,8 @@
 #define BSX_BIOS_SIZE	0x100000
 
 static const char *biosNames[] = { "BS-X.bin", "BS-X.bios", "bs-x.bin", NULL };
+
+unsigned long SNESROMSize = 0;
 
 static bool ProbeDevice(int device, char *outPath, size_t outLen)
 {
@@ -67,7 +67,7 @@ bool BSXLocateBIOS(char *outPath, size_t outLen)
 bool BSXLoadBIOS(const char *path)
 {
 	AllocSaveBuffer();
-	size_t size = LoadFile((char *)savebuffer, (char *)path, 0, BSX_BIOS_SIZE + 512, SILENT);
+	size_t size = LoadFile((char *)savebuffer, (char *)path, BSX_BIOS_SIZE + 512, SILENT);
 	uint8 *buf = savebuffer;
 
 	if(size == BSX_BIOS_SIZE + 512)
@@ -92,13 +92,6 @@ bool BSXLoadBIOS(const char *path)
 	strcpy(Memory.ROMFilename, "BS-X");
 	Memory.ROMFilePath[0] = 0;
 	SNESROMSize = BSX_BIOS_SIZE;
-
-	if(GCSettings.SaveMethod != DEVICE_AUTO)
-	{
-		char srm[MAXPATHLEN];
-		snprintf(srm, sizeof(srm), "%s%s/BS-X.srm", pathPrefix[GCSettings.SaveMethod], GCSettings.SaveFolder);
-		LoadSRAM(srm, SILENT);
-	}
 
 	PersistLoadAll(SILENT);
 	return true;

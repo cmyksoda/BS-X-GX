@@ -14,8 +14,6 @@
 #include "display.h"
 #include <math.h>
 
-extern bool bsxBiosLoadFailed;
-
 #ifdef GEKKO
 #include "bsxstream.h"
 #include "ppu.h"

@@ -249,6 +249,16 @@ bool S9xPollPointer(uint32 id, int16 * x, int16 * y)
  * compile. Where possible, they will return an error signal.
  ***************************************************************************/
 
+bool8 S9xOpenSnapshotFile(const char *filepath, bool8 readonly, STREAM *file)
+{
+	return FALSE;
+}
+
+void S9xCloseSnapshotFile(STREAM s)
+{
+
+}
+
 const char * S9xGetDirectory(enum s9x_getdirtype dirtype)
 {
 	ExitApp();

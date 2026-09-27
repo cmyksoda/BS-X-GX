@@ -18,9 +18,7 @@
 
 #include <ogcsys.h>
 #include <unistd.h>
-#ifdef HW_RVL
 #include <wiiuse/wpad.h>
-#endif
 #include <ogc/lwp_watchdog.h>
 
 #include "snes9x/port.h"
@@ -35,12 +33,10 @@
 #include "snes9x/memmap.h"
 #include "snes9x/controls.h"
 
-#ifdef HW_RVL
 #include "utils/retrode.h"
 #include "utils/xbox360.h"
 #include "utils/hornet.h"
 #include "utils/mayflash.h"
-#endif
 
 #define ANALOG_SENSITIVITY 30
 
@@ -48,13 +44,11 @@ int rumbleRequest[4] = {0,0,0,0};
 int playerMapping[4] = {0,1,2,3};
 GuiTrigger userInput[4];
 
-#ifdef HW_RVL
 static int rumbleCount[4] = {0,0,0,0};
-#endif
 
-// hold superscope/mouse/justifier cursor positions
-static int cursor_x[5] = {0,0,0,0,0};
-static int cursor_y[5] = {0,0,0,0,0};
+// hold mouse cursor positions
+static int cursor_x[2] = {0,0};
+static int cursor_y[2] = {0,0};
 
 /****************************************************************************
  * Controller Functions
@@ -67,7 +61,6 @@ static int cursor_y[5] = {0,0,0,0,0};
 #define ASSIGN_BUTTON_FALSE( keycode, snescmd ) \
 	  S9xMapButton( keycode, cmd = S9xGetCommandT(snescmd), false)
 
-static int scopeTurbo = 0; // tracks whether superscope turbo is on or off
 u32 btnmap[4][6][12]; // button mapping
 
 void ResetControls(int consoleCtrl, int wiiCtrl)
@@ -181,66 +174,6 @@ void ResetControls(int consoleCtrl, int wiiCtrl)
 		btnmap[CTRL_PAD][CTRLR_NUNCHUK][i++] = WPAD_BUTTON_RIGHT;
 	}
 
-	/*** Superscope : GC controller button mapping ***/
-	if(consoleCtrl == -1 || (consoleCtrl == CTRL_SCOPE && wiiCtrl == CTRLR_GCPAD))
-	{
-		i=0;
-		btnmap[CTRL_SCOPE][CTRLR_GCPAD][i++] = PAD_BUTTON_A;
-		btnmap[CTRL_SCOPE][CTRLR_GCPAD][i++] = PAD_BUTTON_B;
-		btnmap[CTRL_SCOPE][CTRLR_GCPAD][i++] = PAD_TRIGGER_Z;
-		btnmap[CTRL_SCOPE][CTRLR_GCPAD][i++] = PAD_BUTTON_Y;
-		btnmap[CTRL_SCOPE][CTRLR_GCPAD][i++] = PAD_BUTTON_X;
-		btnmap[CTRL_SCOPE][CTRLR_GCPAD][i++] = PAD_BUTTON_START;
-	}
-
-	/*** Superscope : wiimote button mapping ***/
-	if(consoleCtrl == -1 || (consoleCtrl == CTRL_SCOPE && wiiCtrl == CTRLR_WIIMOTE))
-	{
-		i=0;
-		btnmap[CTRL_SCOPE][CTRLR_WIIMOTE][i++] = WPAD_BUTTON_B;
-		btnmap[CTRL_SCOPE][CTRLR_WIIMOTE][i++] = WPAD_BUTTON_A;
-		btnmap[CTRL_SCOPE][CTRLR_WIIMOTE][i++] = WPAD_BUTTON_MINUS;
-		btnmap[CTRL_SCOPE][CTRLR_WIIMOTE][i++] = WPAD_BUTTON_UP;
-		btnmap[CTRL_SCOPE][CTRLR_WIIMOTE][i++] = WPAD_BUTTON_DOWN;
-		btnmap[CTRL_SCOPE][CTRLR_WIIMOTE][i++] = WPAD_BUTTON_PLUS;
-	}
-
-	/*** Superscope : Classic Controller button mapping ***/
-	if(consoleCtrl == -1 || (consoleCtrl == CTRL_SCOPE && wiiCtrl == CTRLR_CLASSIC))
-	{
-		i=0;
-		btnmap[CTRL_SCOPE][CTRLR_CLASSIC][i++] = WPAD_CLASSIC_BUTTON_B;
-		btnmap[CTRL_SCOPE][CTRLR_CLASSIC][i++] = WPAD_CLASSIC_BUTTON_A;
-		btnmap[CTRL_SCOPE][CTRLR_CLASSIC][i++] = WPAD_CLASSIC_BUTTON_MINUS;
-		btnmap[CTRL_SCOPE][CTRLR_CLASSIC][i++] = WPAD_CLASSIC_BUTTON_Y;
-		btnmap[CTRL_SCOPE][CTRLR_CLASSIC][i++] = WPAD_CLASSIC_BUTTON_X;
-		btnmap[CTRL_SCOPE][CTRLR_CLASSIC][i++] = WPAD_CLASSIC_BUTTON_PLUS;
-	}
-
-	/*** Superscope : Wii U Pro Controller button mapping ***/
-	if(consoleCtrl == -1 || (consoleCtrl == CTRL_SCOPE && wiiCtrl == CTRLR_WUPC))
-	{
-		i=0;
-		btnmap[CTRL_SCOPE][CTRLR_WUPC][i++] = WPAD_CLASSIC_BUTTON_B;
-		btnmap[CTRL_SCOPE][CTRLR_WUPC][i++] = WPAD_CLASSIC_BUTTON_A;
-		btnmap[CTRL_SCOPE][CTRLR_WUPC][i++] = WPAD_CLASSIC_BUTTON_MINUS;
-		btnmap[CTRL_SCOPE][CTRLR_WUPC][i++] = WPAD_CLASSIC_BUTTON_Y;
-		btnmap[CTRL_SCOPE][CTRLR_WUPC][i++] = WPAD_CLASSIC_BUTTON_X;
-		btnmap[CTRL_SCOPE][CTRLR_WUPC][i++] = WPAD_CLASSIC_BUTTON_PLUS;
-	}
-
-	/*** Superscope : Wii U Gamepad button mapping ***/
-	if(consoleCtrl == -1 || (consoleCtrl == CTRL_SCOPE && wiiCtrl == CTRLR_WIIDRC))
-	{
-		i=0;
-		btnmap[CTRL_SCOPE][CTRLR_WIIDRC][i++] = WIIDRC_BUTTON_B;
-		btnmap[CTRL_SCOPE][CTRLR_WIIDRC][i++] = WIIDRC_BUTTON_A;
-		btnmap[CTRL_SCOPE][CTRLR_WIIDRC][i++] = WIIDRC_BUTTON_MINUS;
-		btnmap[CTRL_SCOPE][CTRLR_WIIDRC][i++] = WIIDRC_BUTTON_Y;
-		btnmap[CTRL_SCOPE][CTRLR_WIIDRC][i++] = WIIDRC_BUTTON_X;
-		btnmap[CTRL_SCOPE][CTRLR_WIIDRC][i++] = WIIDRC_BUTTON_PLUS;
-	}
-
 	/*** Mouse : GC controller button mapping ***/
 	if(consoleCtrl == -1 || (consoleCtrl == CTRL_MOUSE && wiiCtrl == CTRLR_GCPAD))
 	{
@@ -281,50 +214,6 @@ void ResetControls(int consoleCtrl, int wiiCtrl)
 		btnmap[CTRL_MOUSE][CTRLR_WIIDRC][i++] = WIIDRC_BUTTON_B;
 	}
 
-	/*** Justifier : GC controller button mapping ***/
-	if(consoleCtrl == -1 || (consoleCtrl == CTRL_JUST && wiiCtrl == CTRLR_GCPAD))
-	{
-		i=0;
-		btnmap[CTRL_JUST][CTRLR_GCPAD][i++] = PAD_BUTTON_B;
-		btnmap[CTRL_JUST][CTRLR_GCPAD][i++] = PAD_BUTTON_A;
-		btnmap[CTRL_JUST][CTRLR_GCPAD][i++] = PAD_BUTTON_START;
-	}
-
-	/*** Justifier : wiimote button mapping ***/
-	if(consoleCtrl == -1 || (consoleCtrl == CTRL_JUST && wiiCtrl == CTRLR_WIIMOTE))
-	{
-		i=0;
-		btnmap[CTRL_JUST][CTRLR_WIIMOTE][i++] = WPAD_BUTTON_B;
-		btnmap[CTRL_JUST][CTRLR_WIIMOTE][i++] = WPAD_BUTTON_A;
-		btnmap[CTRL_JUST][CTRLR_WIIMOTE][i++] = WPAD_BUTTON_PLUS;
-	}
-
-	/*** Justifier : Classic Controller button mapping ***/
-	if(consoleCtrl == -1 || (consoleCtrl == CTRL_JUST && wiiCtrl == CTRLR_CLASSIC))
-	{
-		i=0;
-		btnmap[CTRL_JUST][CTRLR_CLASSIC][i++] = WPAD_CLASSIC_BUTTON_B;
-		btnmap[CTRL_JUST][CTRLR_CLASSIC][i++] = WPAD_CLASSIC_BUTTON_A;
-		btnmap[CTRL_JUST][CTRLR_CLASSIC][i++] = WPAD_CLASSIC_BUTTON_PLUS;
-	}
-
-	/*** Justifier : Wii U Pro Controller button mapping ***/
-	if(consoleCtrl == -1 || (consoleCtrl == CTRL_JUST && wiiCtrl == CTRLR_WUPC))
-	{
-		i=0;
-		btnmap[CTRL_JUST][CTRLR_WUPC][i++] = WPAD_CLASSIC_BUTTON_B;
-		btnmap[CTRL_JUST][CTRLR_WUPC][i++] = WPAD_CLASSIC_BUTTON_A;
-		btnmap[CTRL_JUST][CTRLR_WUPC][i++] = WPAD_CLASSIC_BUTTON_PLUS;
-	}
-
-	/*** Justifier : Wii U Gamepad button mapping ***/
-	if(consoleCtrl == -1 || (consoleCtrl == CTRL_JUST && wiiCtrl == CTRLR_WIIDRC))
-	{
-		i=0;
-		btnmap[CTRL_JUST][CTRLR_WIIDRC][i++] = WIIDRC_BUTTON_B;
-		btnmap[CTRL_JUST][CTRLR_WIIDRC][i++] = WIIDRC_BUTTON_A;
-		btnmap[CTRL_JUST][CTRLR_WIIDRC][i++] = WIIDRC_BUTTON_PLUS;
-	}
 }
 
 /****************************************************************************
@@ -336,14 +225,12 @@ void ResetControls(int consoleCtrl, int wiiCtrl)
 void
 UpdatePads()
 {
-	#ifdef HW_RVL
 	WiiDRC_ScanPads();
 	Retrode_ScanPads();
 	XBOX360_ScanPads();
 	Hornet_ScanPads();
 	Mayflash_ScanPads();
 	WPAD_ScanPads();
-	#endif
 
 	PAD_ScanPads();
 
@@ -359,7 +246,6 @@ UpdatePads()
 		userInput[i].pad.triggerL = PAD_TriggerL(i);
 		userInput[i].pad.triggerR = PAD_TriggerR(i);
 	}
-#ifdef HW_RVL
 	if(WiiDRC_Inited() && WiiDRC_Connected())
 	{
 		userInput[0].wiidrcdata.btns_d = WiiDRC_ButtonsDown();
@@ -370,7 +256,6 @@ UpdatePads()
 		userInput[0].wiidrcdata.substickX = WiiDRC_rStickX();
 		userInput[0].wiidrcdata.substickY = WiiDRC_rStickY();
 	}
-#endif
 }
 
 /****************************************************************************
@@ -386,22 +271,17 @@ SetupPads()
 	soundSync = Settings.SoundSync;
 	PAD_Init();
 
-	#ifdef HW_RVL
 	// read wiimote accelerometer and IR data
 	WPAD_SetDataFormat(WPAD_CHAN_ALL,WPAD_FMT_BTNS_ACC_IR);
 	WPAD_SetVRes(WPAD_CHAN_ALL, screenwidth, screenheight);
-	#endif
 
 	for(int i=0; i < 4; i++)
 	{
 		userInput[i].chan = i;
-		#ifdef HW_RVL
 		userInput[i].wpad = WPAD_Data(i);
-		#endif
 	}
 }
 
-#ifdef HW_RVL
 /****************************************************************************
  * ShutoffRumble
  ***************************************************************************/
@@ -442,12 +322,11 @@ void DoRumble(int i)
 		WPAD_Rumble(i, 0); // rumble off
 	}
 }
-#endif
 
 /****************************************************************************
  * UpdateCursorPosition
  *
- * Updates X/Y coordinates for Superscope/mouse/justifier position
+ * Updates X/Y coordinates for the mouse position
  ***************************************************************************/
 static void UpdateCursorPosition (int chan, int &pos_x, int &pos_y)
 {
@@ -477,7 +356,6 @@ static void UpdateCursorPosition (int chan, int &pos_x, int &pos_y)
 		if (pos_y < 0) pos_y = 0;
 	}
 
-#ifdef HW_RVL
 	if (userInput[chan].wpad->ir.valid)
 	{
 		pos_x = (userInput[chan].wpad->ir.x * 256) / 640;
@@ -510,7 +388,6 @@ static void UpdateCursorPosition (int chan, int &pos_x, int &pos_y)
 			if (pos_y < 0) pos_y = 0;
 		}
 	}
-#endif
 
 }
 
@@ -528,7 +405,6 @@ static void decodepad (int chan, int emuChan)
 	s8 pad_y = userInput[chan].pad.stickY;
 	u32 jp = userInput[chan].pad.btns_h;
 
-#ifdef HW_RVL
 	s8 wm_ax = userInput[chan].WPAD_StickX(0);
 	s8 wm_ay = userInput[chan].WPAD_StickY(0);
 	u32 wp = userInput[chan].wpad->btns_h;
@@ -546,7 +422,6 @@ static void decodepad (int chan, int emuChan)
     jp |= XBOX360_ButtonsHeld(chan);
 	jp |= Hornet_ButtonsHeld(chan);
 	jp |= Mayflash_ButtonsHeld(chan);
-#endif
 
 	/***
 	Gamecube Joystick input
@@ -566,7 +441,6 @@ static void decodepad (int chan, int emuChan)
 	if (userInput[chan].pad.triggerR > 0x80)
 		jp |= PAD_TRIGGER_R;
 
-#ifdef HW_RVL
 	/***
 	Wii Joystick (classic, nunchuk) input
 	***/
@@ -588,18 +462,15 @@ static void decodepad (int chan, int emuChan)
 		wiidrcp |= WIIDRC_BUTTON_LEFT;
 	else if (wiidrc_ax > ANALOG_SENSITIVITY)
 		wiidrcp |= WIIDRC_BUTTON_RIGHT;
-#endif
 
 	if (GCSettings.MapABXYRightStick)
 	{
 		s8 pad_substickX = userInput[chan].pad.substickX;
 		s8 pad_substickY = userInput[chan].pad.substickY;
-#ifdef HW_RVL
 		s8 wm_substickX = userInput[chan].WPAD_StickX(1);
 		s8 wm_substickY = userInput[chan].WPAD_StickY(1);
 		s16 wiidrc_substickX = userInput[chan].wiidrcdata.substickX;
 		s16 wiidrc_substickY = userInput[chan].wiidrcdata.substickY;
-#endif
 
 		/* Gamecube Controller */
 		if (pad_substickY > ANALOG_SENSITIVITY)
@@ -611,7 +482,6 @@ static void decodepad (int chan, int emuChan)
 		else if (pad_substickX > ANALOG_SENSITIVITY)
 			jp |= PAD_BUTTON_A;
 
-#ifdef HW_RVL
 		/* Wii Controller */
 		if (wm_substickY > ANALOG_SENSITIVITY)
 			wp |= WPAD_CLASSIC_BUTTON_X;
@@ -631,7 +501,6 @@ static void decodepad (int chan, int emuChan)
 			wiidrcp |= WIIDRC_BUTTON_Y;
 		else if (wiidrc_substickX > ANALOG_SENSITIVITY)
 			wiidrcp |= WIIDRC_BUTTON_A;
-#endif
 	}
 
 	/*** Fix offset to pad ***/
@@ -641,73 +510,29 @@ static void decodepad (int chan, int emuChan)
 	for (i = 0; i < MAXJP; i++)
     {
 		if ( (jp & btnmap[CTRL_PAD][CTRLR_GCPAD][i])											// gamecube controller
-#ifdef HW_RVL
 		|| ( (exp_type == WPAD_EXP_NONE) && (wp & btnmap[CTRL_PAD][CTRLR_WIIMOTE][i]) )	// wiimote
 		|| ( (exp_type == WPAD_EXP_CLASSIC && !isWUPC) && (wp & btnmap[CTRL_PAD][CTRLR_CLASSIC][i]) )	// classic controller
 		|| ( (exp_type == WPAD_EXP_CLASSIC && isWUPC) && (wp & btnmap[CTRL_PAD][CTRLR_WUPC][i]) )	// wii u pro controller
 		|| ( (exp_type == WPAD_EXP_NUNCHUK) && (wp & btnmap[CTRL_PAD][CTRLR_NUNCHUK][i]) )	// nunchuk + wiimote
 		|| ( (wiidrcp & btnmap[CTRL_PAD][CTRLR_WIIDRC][i]) ) // Wii U Gamepad
-#endif
 		)
 			S9xReportButton (offset + i, true);
 		else
 			S9xReportButton (offset + i, false);
     }
 
-	/*** Superscope ***/
-	if (Settings.SuperScopeMaster && emuChan == 0) // report only once
-	{
-		// buttons
-		offset = 0x50;
-		for (i = 0; i < 6; i++)
-		{
-			if (jp & btnmap[CTRL_SCOPE][CTRLR_GCPAD][i]
-#ifdef HW_RVL
-			|| wp & btnmap[CTRL_SCOPE][CTRLR_WIIMOTE][i]
-			|| wp & btnmap[CTRL_SCOPE][CTRLR_CLASSIC][i]
-			|| wp & btnmap[CTRL_SCOPE][CTRLR_WUPC][i]
-			|| wiidrcp & btnmap[CTRL_SCOPE][CTRLR_WIIDRC][i]
-#endif
-			)
-			{
-				if(i == 3 || i == 4) // turbo
-				{
-					if((i == 3 && scopeTurbo == 1) || // turbo ON already, don't change
-						(i == 4 && scopeTurbo == 0)) // turbo OFF already, don't change
-					{
-						S9xReportButton(offset + i, false);
-					}
-					else // turbo changed to ON or OFF
-					{
-						scopeTurbo = 4-i;
-						S9xReportButton(offset + i, true);
-					}
-				}
-				else
-					S9xReportButton(offset + i, true);
-			}
-			else
-				S9xReportButton(offset + i, false);
-		}
-		// pointer
-		offset = 0x80;
-		UpdateCursorPosition(emuChan, cursor_x[0], cursor_y[0]);
-		S9xReportPointer(offset, (u16) cursor_x[0], (u16) cursor_y[0]);
-	}
 	/*** Mouse ***/
-	else if (Settings.MouseMaster && emuChan < 2)
+	if (Settings.MouseMaster && emuChan < 2)
 	{
 		// buttons
 		offset = 0x60 + (2 * emuChan);
 		for (i = 0; i < 2; i++)
 		{
 			if (jp & btnmap[CTRL_MOUSE][CTRLR_GCPAD][i]
-#ifdef HW_RVL
 			|| wp & btnmap[CTRL_MOUSE][CTRLR_WIIMOTE][i]
 			|| wp & btnmap[CTRL_MOUSE][CTRLR_CLASSIC][i]
 			|| wp & btnmap[CTRL_MOUSE][CTRLR_WUPC][i]
 			|| wiidrcp & btnmap[CTRL_MOUSE][CTRLR_WIIDRC][i]
-#endif
 			)
 				S9xReportButton(offset + i, true);
 			else
@@ -715,43 +540,10 @@ static void decodepad (int chan, int emuChan)
 		}
 		// pointer
 		offset = 0x81;
-		UpdateCursorPosition(emuChan, cursor_x[1 + emuChan], cursor_y[1 + emuChan]);
-		S9xReportPointer(offset + emuChan, (u16) cursor_x[1 + emuChan],
-				(u16) cursor_y[1 + emuChan]);
+		UpdateCursorPosition(emuChan, cursor_x[emuChan], cursor_y[emuChan]);
+		S9xReportPointer(offset + emuChan, (u16) cursor_x[emuChan],
+				(u16) cursor_y[emuChan]);
 	}
-	/*** Justifier ***/
-	else if (Settings.JustifierMaster && emuChan < 2)
-	{
-		// buttons
-		offset = 0x70 + (3 * emuChan);
-		for (i = 0; i < 3; i++)
-		{
-			if (jp & btnmap[CTRL_JUST][CTRLR_GCPAD][i]
-#ifdef HW_RVL
-			|| wp & btnmap[CTRL_JUST][CTRLR_WIIMOTE][i]
-			|| wp & btnmap[CTRL_JUST][CTRLR_CLASSIC][i]
-			|| wp & btnmap[CTRL_JUST][CTRLR_WUPC][i]
-			|| wiidrcp & btnmap[CTRL_JUST][CTRLR_WIIDRC][i]
-#endif
-			)
-				S9xReportButton(offset + i, true);
-			else
-				S9xReportButton(offset + i, false);
-		}
-		// pointer
-		offset = 0x83;
-		UpdateCursorPosition(emuChan, cursor_x[3 + emuChan], cursor_y[3 + emuChan]);
-		S9xReportPointer(offset + emuChan, (u16) cursor_x[3 + emuChan],
-				(u16) cursor_y[3 + emuChan]);
-	}
-
-#ifdef HW_RVL
-	// screenshot (temp)
-	if (wp & CLASSIC_CTRL_BUTTON_ZR)
-		S9xReportButton(0x90, true);
-	else
-		S9xReportButton(0x90, false);
-#endif
 }
 
 bool isMenuRequested()
@@ -762,11 +554,9 @@ bool isMenuRequested()
 		{
 			if (
 				(userInput[i].pad.substickX < -70)
-				#ifdef HW_RVL
 				|| (userInput[i].wpad->btns_h & WPAD_BUTTON_HOME) ||
 				(userInput[i].wpad->btns_h & WPAD_CLASSIC_BUTTON_HOME) ||
 				(userInput[i].wiidrcdata.btns_h & WIIDRC_BUTTON_HOME)
-				#endif
 			)
 			{
 				return true;
@@ -778,14 +568,12 @@ bool isMenuRequested()
 				(userInput[i].pad.btns_h & PAD_TRIGGER_L &&
 				userInput[i].pad.btns_h & PAD_TRIGGER_R &&
 				userInput[i].pad.btns_h & PAD_BUTTON_START)
-				#ifdef HW_RVL
 				|| (userInput[i].wpad->btns_h & WPAD_CLASSIC_BUTTON_FULL_L &&
 				userInput[i].wpad->btns_h & WPAD_CLASSIC_BUTTON_FULL_R &&
 				userInput[i].wpad->btns_h & WPAD_CLASSIC_BUTTON_PLUS)
 				|| (userInput[i].wpad->btns_h & WPAD_BUTTON_PLUS &&
 				userInput[i].wpad->btns_h & WPAD_BUTTON_1 &&
 				userInput[i].wpad->btns_h & WPAD_BUTTON_2)
-				#endif
 			)
 			{
 				return true;
@@ -798,7 +586,6 @@ bool isMenuRequested()
 				(userInput[i].pad.btns_h & PAD_TRIGGER_L &&
 				userInput[i].pad.btns_h & PAD_TRIGGER_R &&
 				userInput[i].pad.btns_h & PAD_BUTTON_START)
-				#ifdef HW_RVL
 				|| (userInput[i].wpad->btns_h & WPAD_BUTTON_HOME) ||
 				(userInput[i].wpad->btns_h & WPAD_CLASSIC_BUTTON_HOME) ||
 				(userInput[i].wiidrcdata.btns_h & WIIDRC_BUTTON_HOME) ||
@@ -808,7 +595,6 @@ bool isMenuRequested()
 				|| (userInput[i].wpad->btns_h & WPAD_BUTTON_PLUS &&
 				userInput[i].wpad->btns_h & WPAD_BUTTON_1 &&
 				userInput[i].wpad->btns_h & WPAD_BUTTON_2)
-				#endif
 			)
 			{
 				return true;
@@ -959,11 +745,6 @@ void SetControllers()
 		S9xSetController (0, CTL_JOYPAD, 0, 0, 0, 0);
 		S9xSetController (1, CTL_MP5, 1, 2, 3, -1);
 	}
-	else if (Settings.SuperScopeMaster == true)
-	{
-		S9xSetController (0, CTL_JOYPAD, 0, 0, 0, 0);
-		S9xSetController (1, CTL_SUPERSCOPE, 0, 0, 0, 0);
-	}
 	else if (Settings.MouseMaster == true)
 	{
 		if (GCSettings.Controller == CTRL_MOUSE)
@@ -981,11 +762,6 @@ void SetControllers()
 			S9xSetController (0, CTL_MOUSE, 0, 0, 0, 0);
 			S9xSetController (1, CTL_MOUSE, 1, 0, 0, 0);
 		}	
-	}
-	else if (Settings.JustifierMaster == true)
-	{
-		S9xSetController (0, CTL_JOYPAD, 0, 0, 0, 0);
-		S9xSetController(1, CTL_JUSTIFIER, 1, 0, 0, 0);
 	}
 	else
 	{
@@ -1062,15 +838,6 @@ void SetDefaultButtonMap ()
 	ASSIGN_BUTTON_FALSE (maxcode++, "Joypad4 Left");
 	ASSIGN_BUTTON_FALSE (maxcode++, "Joypad4 Right");
 
-	maxcode = 0x50;
-	/*** Superscope ***/
-	ASSIGN_BUTTON_FALSE (maxcode++, "Superscope Fire");
-	ASSIGN_BUTTON_FALSE (maxcode++, "Superscope AimOffscreen");
-	ASSIGN_BUTTON_FALSE (maxcode++, "Superscope Cursor");
-	ASSIGN_BUTTON_FALSE (maxcode++, "Superscope ToggleTurbo");
-	ASSIGN_BUTTON_FALSE (maxcode++, "Superscope ToggleTurbo");
-	ASSIGN_BUTTON_FALSE (maxcode++, "Superscope Pause");
-
 	maxcode = 0x60;
 	/*** Mouse ***/
 	ASSIGN_BUTTON_FALSE (maxcode++, "Mouse1 L");
@@ -1078,33 +845,16 @@ void SetDefaultButtonMap ()
 	ASSIGN_BUTTON_FALSE (maxcode++, "Mouse2 L");
 	ASSIGN_BUTTON_FALSE (maxcode++, "Mouse2 R");
 
-	maxcode = 0x70;
-	/*** Justifier ***/
-	ASSIGN_BUTTON_FALSE (maxcode++, "Justifier1 Trigger");
-	ASSIGN_BUTTON_FALSE (maxcode++, "Justifier1 AimOffscreen");
-	ASSIGN_BUTTON_FALSE (maxcode++, "Justifier1 Start");
-	ASSIGN_BUTTON_FALSE (maxcode++, "Justifier2 Trigger");
-	ASSIGN_BUTTON_FALSE (maxcode++, "Justifier2 AimOffscreen");
-	ASSIGN_BUTTON_FALSE (maxcode++, "Justifier2 Start");
-
-	maxcode = 0x80;
-	S9xMapPointer(maxcode++, S9xGetCommandT("Pointer Superscope"), false);
+	maxcode = 0x81;
 	S9xMapPointer(maxcode++, S9xGetCommandT("Pointer Mouse1"), false);
 	S9xMapPointer(maxcode++, S9xGetCommandT("Pointer Mouse2"), false);
-	S9xMapPointer(maxcode++, S9xGetCommandT("Pointer Justifier1"), false);
-	S9xMapPointer(maxcode++, S9xGetCommandT("Pointer Justifier2"), false);
-
-	maxcode = 0x90;
-	//ASSIGN_BUTTON_FALSE (maxcode++, "Screenshot");
 
 	SetControllers();
 }
 
-#ifdef HW_RVL
 char* GetUSBControllerInfo()
 {
     static char info[100];
     snprintf(info, 100, "Retrode: %s, XBOX360: %s, Hornet: %s, Mayflash: %s", Retrode_Status(), XBOX360_Status(), Hornet_Status(), Mayflash_Status());
     return info;
 }
-#endif

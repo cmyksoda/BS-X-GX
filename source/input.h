@@ -37,8 +37,6 @@ void SetDefaultButtonMap ();
 bool isMenuRequested();
 void SetupPads();
 void UpdatePads();
-#ifdef HW_RVL
 char* GetUSBControllerInfo();
-#endif
 
 #endif

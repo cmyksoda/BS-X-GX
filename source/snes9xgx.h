@@ -19,86 +19,22 @@
 #include "filelist.h"
 
 #define APPNAME 			"BS-X GX"
-#define APPVERSION 			"0.7.0"
+#define APPVERSION 			"0.7.1"
 #define APPFOLDER 			"bsxgx"
+#define SAVEFOLDER			APPFOLDER "/saves"
 #define PREF_FILE_NAME		"settings.xml"
 
 #define MAXPATHLEN 1024
 #define NOTSILENT 0
 #define SILENT 1
 
-const char pathPrefix[10][11] =
-{ "", "sd:/", "usb:/", "dvd:/", "smb:/", "carda:/", "cardb:/", "port2:/", "gcloader:/" };
+const char pathPrefix[3][6] = { "", "sd:/", "usb:/" };
 
 enum {
 	DEVICE_AUTO = 0,
 	DEVICE_SD,
 	DEVICE_USB,
-	DEVICE_DVD,
-	DEVICE_SMB,
-	DEVICE_SD_SLOTA,
-	DEVICE_SD_SLOTB,
-	DEVICE_SD_PORT2,
-	DEVICE_SD_GCLOADER,
 	DEVICE_LENGTH
-};
-
-enum {
-    SAVEFOLDER_SAVES = 0,
-    SAVEFOLDER_CHEATS,
-    SAVEFOLDER_LENGTH
-};
-
-enum {
-    LOADFOLDER_ROMS = 0,
-    LOADFOLDER_SCREENSHOTS,
-    LOADFOLDER_COVERS,
-    LOADFOLDER_ARTWORK,
-    LOADFOLDER_LENGTH
-};
-
-typedef struct {
-    int id;
-    const char *name;
-} FolderDef;
-
-const FolderDef saveFolder[] = {
-    { SAVEFOLDER_SAVES,  "saves" },
-    { SAVEFOLDER_CHEATS, "cheats" }
-};
-
-const FolderDef loadFolder[] = {
-    { LOADFOLDER_ROMS,        "roms" },
-    { LOADFOLDER_SCREENSHOTS, "screenshots" },
-    { LOADFOLDER_COVERS,      "covers" },
-    { LOADFOLDER_ARTWORK,     "artwork" }
-};
-
-enum {
-	FILE_SRAM,
-	FILE_STATE,
-	FILE_ROM,
-	FILE_CHEAT
-};
-
-enum {
-	AUTOLOAD_OFF = 0,
-	AUTOLOAD_SRAM,
-	AUTOLOAD_STATE
-};
-
-enum {
-	AUTOSAVE_OFF = 0,
-	AUTOSAVE_SRAM,
-	AUTOSAVE_STATE,
-	AUTOSAVE_BOTH
-};
-
-enum {
-	PREVIEWIMAGE_SCREENSHOT = 0,
-	PREVIEWIMAGE_COVER,
-	PREVIEWIMAGE_ARTWORK,
-	PREVIEWIMAGE_LENGTH
 };
 
 enum {
@@ -125,17 +61,6 @@ enum {
 	VIDEOMODE_PROGRESSIVE_576P,
 	VIDEOMODE_ORIGINAL_240P,
 	VIDEOMODE_LENGTH
-};
-
-enum {
-	SFXOVERCLOCK_OFF = 0,
-	SFXOVERCLOCK_20MHZ,
-	SFXOVERCLOCK_40MHZ,
-	SFXOVERCLOCK_60MHZ,
-	SFXOVERCLOCK_80MHZ,
-	SFXOVERCLOCK_100MHZ,
-	SFXOVERCLOCK_120MHZ,
-	SFXOVERCLOCK_LENGTH
 };
 
 enum {
@@ -214,25 +139,9 @@ enum {
 };
 
 struct SGCSettings{
-	int		AutoLoad;
-	int		AutoSave;
 	int		LoadMethod;
 	int		SaveMethod;
-	bool	AppendAuto;
-	char	LoadFolder[MAXPATHLEN];
-	char	LastFileLoaded[MAXPATHLEN];
-	char	SaveFolder[MAXPATHLEN];
-	char	CheatFolder[MAXPATHLEN];
-	char	ScreenshotsFolder[MAXPATHLEN];
-	char	CoverFolder[MAXPATHLEN];
-	char	ArtworkFolder[MAXPATHLEN];
-	bool	HideSRAMSaving;
-	bool	AutoloadGame;
 
-	char	smbip[80];
-	char	smbuser[20];
-	char	smbpwd[20];
-	char	smbshare[20];
 	char	stationURL[128];   // host[:port], plain HTTP
 
 	int		videoMode;
@@ -249,8 +158,6 @@ struct SGCSettings{
 	bool	HiResolution;
 	bool	SpriteLimit;
 	bool	FrameSkip;
-	bool	crosshair;
-	int		sfxOverclock;
 	int		Interpolation;
 	bool	MuteAudio;
 	
@@ -261,8 +168,6 @@ struct SGCSettings{
 	int		SFXVolume;
 	bool	Rumble;
 	int		language;
-	int		PreviewImage;
-
 
 	bool	TurboModeEnabled;
 	int		TurboModeButton;

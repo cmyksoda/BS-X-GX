@@ -14,68 +14,40 @@
 #include <ogcsys.h>
 #include <dirent.h>
 #include <sys/stat.h>
-#include <zlib.h>
 #include <fat.h>
 #include <sdcard/wiisd_io.h>
-#include <sdcard/gcsd.h>
 #include <ogc/usbstorage.h>
 #include <ogc/cond.h>
-#include <di/di.h>
-#include <ogc/dvd.h>
-#include <iso9660.h>
 
 #include "snes9xgx.h"
 #include "fileop.h"
 #include "memmanager.h"
-#include "networkop.h"
-#include "gcunzip.h"
 #include "menu.h"
-#include "filebrowser.h"
-#include "gui/gui.h"
 
 #define THREAD_SLEEP 100
 
 static mutex_t saveBufferLock = LWP_MUTEX_NULL;
 unsigned char *savebuffer;
 u8 *ext_font_ttf = NULL;
-FILE * file; // file pointer - the only one we should ever use!
-bool unmountRequired[9] = { false, false, false, false, false, false, false, false, false };
-bool isMounted[9] = { false, false, false, false, false, false, false, false, false };
+static FILE * file; // file pointer - the only one we should ever use!
+static bool unmountRequired[DEVICE_LENGTH] = { false, false, false };
+static bool isMounted[DEVICE_LENGTH] = { false, false, false };
 
-#ifdef HW_RVL
-	static DISC_INTERFACE* sd = &__io_wiisd;
-	static DISC_INTERFACE* usb = &__io_usbstorage;
-	static DISC_INTERFACE* dvd = &__io_wiidvd;
-#else
-	static DISC_INTERFACE* dvd = &__io_gcdvd;
-	static DISC_INTERFACE* gcloader = &__io_gcode;
-#endif
+static DISC_INTERFACE* sd = &__io_wiisd;
+static DISC_INTERFACE* usb = &__io_usbstorage;
 
-// folder parsing thread
-static lwp_t parsethread = LWP_THREAD_NULL;
-static DIR *dir = NULL;
-static volatile bool parseHalt = true;
-static bool parseFilter = true;
-static bool ParseDirEntries();
-int selectLoadedFile = 0;
-
-// parse thread synchronization
-static mutex_t parseMutex    = LWP_MUTEX_NULL;
-static cond_t  parseCond     = LWP_COND_NULL; // main -> parse: work available
-static cond_t  parseIdleCond = LWP_COND_NULL; // parse -> main: now idle
-static bool    parseActive   = false;          // protected by parseMutex
+static const int loadDevices[3] = { DEVICE_AUTO, DEVICE_SD, DEVICE_USB };
+static const int saveDevices[3] = { DEVICE_AUTO, DEVICE_SD, DEVICE_USB };
 
 // device thread
 static lwp_t devicethread = LWP_THREAD_NULL;
 static volatile bool deviceHalt = true;
 
-#ifdef HW_RVL
 // device thread synchronization
 static mutex_t deviceMutex    = LWP_MUTEX_NULL;
 static cond_t  deviceWakeCond = LWP_COND_NULL; // main -> device: wake / re-check halt
 static cond_t  deviceHaltCond = LWP_COND_NULL; // device -> main: now halted
 static bool    deviceIdle     = false;          // protected by deviceMutex
-#endif
 
 /****************************************************************************
  * ResumeDeviceThread
@@ -85,12 +57,10 @@ static bool    deviceIdle     = false;          // protected by deviceMutex
 void
 ResumeDeviceThread()
 {
-#ifdef HW_RVL
 	LWP_MutexLock(deviceMutex);
 	deviceHalt = false;
 	LWP_CondSignal(deviceWakeCond);
 	LWP_MutexUnlock(deviceMutex);
-#endif
 }
 
 /****************************************************************************
@@ -101,38 +71,19 @@ ResumeDeviceThread()
 void
 HaltDeviceThread()
 {
-#ifdef HW_RVL
 	deviceHalt = true;
 	LWP_MutexLock(deviceMutex);
 	LWP_CondSignal(deviceWakeCond); // interrupt condvar sleep if the thread is in one
 	while(!deviceIdle)
 		LWP_CondWait(deviceHaltCond, deviceMutex);
 	LWP_MutexUnlock(deviceMutex);
-#endif
 }
-
-/****************************************************************************
- * HaltParseThread
- *
- * Signals the parse thread to stop.
- ***************************************************************************/
-void
-HaltParseThread()
-{
-	parseHalt = true;
-	LWP_MutexLock(parseMutex);
-	while(parseActive)
-		LWP_CondWait(parseIdleCond, parseMutex);
-	LWP_MutexUnlock(parseMutex);
-}
-
 
 /****************************************************************************
  * devicecallback
  *
- * This checks our devices for changes (SD/USB/DVD removed)
+ * This checks our devices for changes (SD/USB removed)
  ***************************************************************************/
-#ifdef HW_RVL
 static void *
 devicecallback (void *arg)
 {
@@ -144,7 +95,6 @@ devicecallback (void *arg)
 			{
 				unmountRequired[DEVICE_SD] = true;
 				isMounted[DEVICE_SD] = false;
-				parseHalt = true; // abort any in-progress dir parse on this device
 			}
 		}
 
@@ -154,17 +104,6 @@ devicecallback (void *arg)
 			{
 				unmountRequired[DEVICE_USB] = true;
 				isMounted[DEVICE_USB] = false;
-				parseHalt = true; // abort any in-progress dir parse on this device
-			}
-		}
-
-		if(isMounted[DEVICE_DVD])
-		{
-			if(!dvd->isInserted(dvd)) // check if the device was removed
-			{
-				unmountRequired[DEVICE_DVD] = true;
-				isMounted[DEVICE_DVD] = false;
-				parseHalt = true; // abort any in-progress dir parse on this device
 			}
 		}
 
@@ -186,28 +125,6 @@ devicecallback (void *arg)
 	}
 	return NULL;
 }
-#endif
-
-static void *
-parsecallback (void *arg)
-{
-	LWP_MutexLock(parseMutex);
-	while(1)
-	{
-		// sleep until ParseDirectory signals there is work to do
-		while(!parseActive)
-			LWP_CondWait(parseCond, parseMutex);
-		LWP_MutexUnlock(parseMutex);
-
-		while(ParseDirEntries())
-			usleep(THREAD_SLEEP);
-
-		LWP_MutexLock(parseMutex);
-		parseActive = false;
-		LWP_CondBroadcast(parseIdleCond); // wake HaltParseThread / waitParse callers
-	}
-	return NULL;
-}
 
 /****************************************************************************
  * InitDeviceThread
@@ -221,16 +138,10 @@ InitDeviceThread()
 	savebuffer = (u8 *)extmem_malloc(SAVEBUFFERSIZE);
 	LWP_MutexInit(&saveBufferLock, false);
 
-#ifdef HW_RVL
 	LWP_MutexInit(&deviceMutex, false);
 	LWP_CondInit(&deviceWakeCond);
 	LWP_CondInit(&deviceHaltCond);
 	LWP_CreateThread(&devicethread, devicecallback, NULL, NULL, 0, 40);
-#endif
-	LWP_MutexInit(&parseMutex, false);
-	LWP_CondInit(&parseCond);
-	LWP_CondInit(&parseIdleCond);
-	LWP_CreateThread(&parsethread, parsecallback, NULL, NULL, 0, 80);
 }
 
 /****************************************************************************
@@ -239,15 +150,8 @@ InitDeviceThread()
  ***************************************************************************/
 void UnmountAllFAT()
 {
-#ifdef HW_RVL
 	fatUnmount("sd:");
 	fatUnmount("usb:");
-#else
-	fatUnmount("port2:");
-	fatUnmount("carda:");
-	fatUnmount("cardb:");
-	fatUnmount("gcloader:");
-#endif
 }
 
 /****************************************************************************
@@ -267,7 +171,6 @@ static bool MountFAT(int device, int silent)
 
 	switch(device)
 	{
-#ifdef HW_RVL
 		case DEVICE_SD:
 			sprintf(name, "sd");
 			sprintf(name2, "sd:");
@@ -278,28 +181,6 @@ static bool MountFAT(int device, int silent)
 			sprintf(name2, "usb:");
 			disc = usb;
 			break;
-#else
-		case DEVICE_SD_SLOTA:
-			sprintf(name, "carda");
-			sprintf(name2, "carda:");
-			disc = get_io_gcsda();
-			break;
-		case DEVICE_SD_SLOTB:
-			sprintf(name, "cardb");
-			sprintf(name2, "cardb:");
-			disc = get_io_gcsdb();
-			break;
-		case DEVICE_SD_PORT2:
-			sprintf(name, "port2");
-			sprintf(name2, "port2:");
-			disc = get_io_gcsd2();
-			break;
-		case DEVICE_SD_GCLOADER:
-			sprintf(name, "gcloader");
-			sprintf(name2, "gcloader:");
-			disc = gcloader;
-			break;
-#endif
 		default:
 			return false; // unknown device
 	}
@@ -320,14 +201,10 @@ static bool MountFAT(int device, int silent)
 		if(mounted || silent)
 			break;
 
-#ifdef HW_RVL
 		if(device == DEVICE_SD)
 			retry = ErrorPromptRetry("SD card not found!");
 		else
 			retry = ErrorPromptRetry("USB drive not found!");
-#else
-		retry = ErrorPromptRetry("SD card not found!");
-#endif
 	}
 
 	isMounted[device] = mounted;
@@ -336,58 +213,8 @@ static bool MountFAT(int device, int silent)
 
 void MountAllFAT()
 {
-#ifdef HW_RVL
 	MountFAT(DEVICE_SD, SILENT);
 	MountFAT(DEVICE_USB, SILENT);
-#endif
-}
-
-/****************************************************************************
- * MountDVD()
- *
- * Tests if a ISO9660 DVD is inserted and available, and mounts it
- ***************************************************************************/
-bool MountDVD(bool silent)
-{
-	bool mounted = false;
-	int retry = 1;
-
-	if(unmountRequired[DEVICE_DVD])
-	{
-		unmountRequired[DEVICE_DVD] = false;
-		ISO9660_Unmount("dvd:");
-	}
-
-	while(retry)
-	{
-		ShowAction("Loading DVD...");
-
-#ifdef HW_DOL
-		DVD_Mount();
-#endif
-		if(!dvd->isInserted(dvd))
-		{
-			if(silent)
-				break;
-
-			retry = ErrorPromptRetry("No disc inserted!");
-		}
-		else if(!ISO9660_Mount("dvd", dvd))
-		{
-			if(silent)
-				break;
-			
-			retry = ErrorPromptRetry("Unrecognized DVD format.");
-		}
-		else
-		{
-			mounted = true;
-			break;
-		}
-	}
-	CancelAction();
-	isMounted[DEVICE_DVD] = mounted;
-	return mounted;
 }
 
 bool FindDevice(char * filepath, int * device)
@@ -405,50 +232,7 @@ bool FindDevice(char * filepath, int * device)
 		*device = DEVICE_USB;
 		return true;
 	}
-	else if(strncmp(filepath, "smb:", 4) == 0)
-	{
-		*device = DEVICE_SMB;
-		return true;
-	}
-	else if(strncmp(filepath, "carda:", 6) == 0)
-	{
-		*device = DEVICE_SD_SLOTA;
-		return true;
-	}
-	else if(strncmp(filepath, "cardb:", 6) == 0)
-	{
-		*device = DEVICE_SD_SLOTB;
-		return true;
-	}
-	else if(strncmp(filepath, "port2:", 6) == 0)
-	{
-		*device = DEVICE_SD_PORT2;
-		return true;
-	}
-	else if(strncmp(filepath, "dvd:", 4) == 0)
-	{
-		*device = DEVICE_DVD;
-		return true;
-	}
-	else if(strncmp(filepath, "gcloader:", 9) == 0)
-	{
-		*device = DEVICE_SD_GCLOADER;
-		return true;
-	}
 	return false;
-}
-
-char * StripDevice(char * path)
-{
-	if(path == NULL)
-		return NULL;
-	
-	char * newpath = strchr(path,'/');
-	
-	if(newpath != NULL)
-		newpath++;
-	
-	return newpath;
 }
 
 /****************************************************************************
@@ -467,22 +251,9 @@ bool ChangeInterface(int device, bool silent)
 
 	switch(device)
 	{
-#ifdef HW_RVL
 		case DEVICE_SD:
 		case DEVICE_USB:
-#else
-		case DEVICE_SD_SLOTA:
-		case DEVICE_SD_SLOTB:
-		case DEVICE_SD_PORT2:
-		case DEVICE_SD_GCLOADER:
-#endif
 			mounted = MountFAT(device, silent);
-			break;
-		case DEVICE_DVD:
-			mounted = MountDVD(silent);
-			break;
-		case DEVICE_SMB:
-			mounted = ConnectShare(silent);
 			break;
 	}
 
@@ -497,6 +268,138 @@ bool ChangeInterface(char * filepath, bool silent)
 		return false;
 
 	return ChangeInterface(device, silent);
+}
+
+bool isValidLoadDevice(int device)
+{
+	for (int i = 0; i < 3; i++) {
+		if (loadDevices[i] == device) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool isValidSaveDevice(int device)
+{
+	for (int i = 0; i < 3; i++) {
+		if (saveDevices[i] == device) {
+			return true;
+		}
+	}
+	return false;
+}
+
+int getNextLoadDevice(int device)
+{
+	for (int i = 0; i < 3; i++) {
+		if (loadDevices[i] == device) {
+			return loadDevices[(i + 1) % 3];
+		}
+	}
+	return DEVICE_AUTO;
+}
+
+int getNextSaveDevice(int device)
+{
+	for (int i = 0; i < 3; i++) {
+		if (saveDevices[i] == device) {
+			return saveDevices[(i + 1) % 3];
+		}
+	}
+	return DEVICE_AUTO;
+}
+
+/****************************************************************************
+* autoLoadMethod()
+* Auto-determines and sets the load device
+* Returns device set
+****************************************************************************/
+int autoLoadMethod(bool silent)
+{
+	if(GCSettings.LoadMethod > DEVICE_AUTO && isValidLoadDevice(GCSettings.LoadMethod)) {
+		return GCSettings.LoadMethod;
+	}
+
+	char fullPath[MAXPATHLEN];
+	int device = DEVICE_AUTO;
+
+	if(!silent)
+		ShowAction ("Attempting to determine load device...");
+
+	// look for the app folder first
+	for (int i = 1; i < 3; i++) {
+		if (ChangeInterface(loadDevices[i], SILENT)) {
+			sprintf(fullPath, "%s%s", pathPrefix[loadDevices[i]], APPFOLDER);
+
+			if(DirExists(fullPath)) {
+				device = loadDevices[i];
+				break;
+			}
+		}
+	}
+
+	// set to first connected device instead
+	if(device == DEVICE_AUTO) {
+		for (int i = 1; i < 3; i++) {
+			if (ChangeInterface(loadDevices[i], SILENT)) {
+				device = loadDevices[i];
+				break;
+			}
+		}
+	}
+
+	GCSettings.LoadMethod = device; // load device found for later use
+	CancelAction();
+	return device;
+}
+
+/****************************************************************************
+* autoSaveMethod()
+* Auto-determines and sets the save device
+* Returns device set
+****************************************************************************/
+int autoSaveMethod(bool silent)
+{
+	if(GCSettings.SaveMethod > DEVICE_AUTO && isValidSaveDevice(GCSettings.SaveMethod)) {
+		return GCSettings.SaveMethod;
+	}
+
+	char fullPath[MAXPATHLEN];
+	int device = DEVICE_AUTO;
+
+	if(!silent)
+		ShowAction ("Attempting to determine save device...");
+
+	// look for the saves folder first
+	for (int i = 1; i < 3; i++) {
+		if (ChangeInterface(saveDevices[i], SILENT)) {
+			sprintf(fullPath, "%s%s", pathPrefix[saveDevices[i]], SAVEFOLDER);
+
+			if(DirExists(fullPath)) {
+				device = saveDevices[i];
+				break;
+			}
+		}
+	}
+
+	// set to first connected device instead
+	if(device == DEVICE_AUTO) {
+		for (int i = 1; i < 3; i++) {
+			if (ChangeInterface(saveDevices[i], SILENT)) {
+				device = saveDevices[i];
+				break;
+			}
+		}
+	}
+
+	GCSettings.SaveMethod = device; // save device found for later use
+
+	if(device == DEVICE_AUTO && !silent)
+		ErrorPrompt("Unable to locate a save device!");
+
+	CancelAction();
+	return device;
 }
 
 void CreateAppPath(char * origpath)
@@ -526,234 +429,6 @@ void CreateAppPath(char * origpath)
 		snprintf(appPath, MAXPATHLEN-1, "%s", &path[pos]);
 
 	free(path);
-}
-
-static char *GetExt(char *file)
-{
-	if(!file)
-		return NULL;
-
-	char *ext = strrchr(file,'.');
-	if(ext != NULL)
-	{
-		ext++;
-		int extlen = strlen(ext);
-		if(extlen > 5)
-			return NULL;
-	}
-	return ext;
-}
-
-void FindAndSelectLastLoadedFile () 
-{
-	int indexFound = -1;
-	
-	for(int j=1; j < browser.numEntries; j++)
-	{
-		if(strcmp(browserList[j].filename, GCSettings.LastFileLoaded) == 0)
-		{
-			indexFound = j;
-			break;
-		}
-	}
-
-	// move to this file
-	if(indexFound > 0)
-	{
-		if(indexFound >= FILE_PAGESIZE)
-		{			
-			int newIndex = (floor(indexFound/(float)FILE_PAGESIZE)) * FILE_PAGESIZE;
-
-			if(newIndex + FILE_PAGESIZE > browser.numEntries)
-				newIndex = browser.numEntries - FILE_PAGESIZE;
-
-			if(newIndex < 0)
-				newIndex = 0;
-
-			browser.pageIndex = newIndex;
-		}
-		browser.selIndex = indexFound;
-	}
-	
-	selectLoadedFile = 2; // selecting done
-}
-
-static bool ParseDirEntries()
-{
-	if(!dir)
-		return false;
-
-	char *ext;
-	struct dirent *entry = NULL;
-	int isdir;
-
-	int i = 0;
-
-	while(i < 20 && !parseHalt)
-	{
-		entry = readdir(dir);
-
-		if(entry == NULL)
-			break;
-
-		if(entry->d_name[0] == '.' && entry->d_name[1] != '.')
-			continue;
-
-		if(strcmp(entry->d_name, "..") == 0)
-		{
-			isdir = 1;
-		}
-		else
-		{
-			if(entry->d_type==DT_DIR)
-				isdir = 1;
-			else
-				isdir = 0;
-			
-			// don't show the file if it's not a valid ROM
-			if(parseFilter && !isdir)
-			{
-				ext = GetExt(entry->d_name);
-				
-				if(ext == NULL)
-					continue;
-
-				if(	strcasecmp(ext, "bs") != 0 && strcasecmp(ext, "smc") != 0 &&
-					strcasecmp(ext, "fig") != 0 && strcasecmp(ext, "sfc") != 0 &&
-					strcasecmp(ext, "swc") != 0 && strcasecmp(ext, "zip") != 0 &&
-					strcasecmp(ext, "7z") != 0)
-					continue;
-			}
-		}
-
-		if(!AddBrowserEntry())
-		{
-			parseHalt = true;
-			break;
-		}
-
-		snprintf(browserList[browser.numEntries+i].filename, MAXJOLIET, "%s", entry->d_name);
-		browserList[browser.numEntries+i].isdir = isdir; // flag this as a dir
-
-		if(isdir)
-		{
-			if(strcmp(entry->d_name, "..") == 0)
-				sprintf(browserList[browser.numEntries+i].displayname, "Up One Level");
-			else
-				snprintf(browserList[browser.numEntries+i].displayname, MAXJOLIET, "%s", browserList[browser.numEntries+i].filename);
-			browserList[browser.numEntries+i].icon = ICON_FOLDER;
-		}
-		else
-		{
-			StripExt(browserList[browser.numEntries+i].displayname, browserList[browser.numEntries+i].filename); // hide file extension
-		}
-		i++;
-	}
-
-	if(!parseHalt)
-	{
-		// Sort the file list
-		if(i >= 0)
-			qsort(browserList, browser.numEntries+i, sizeof(BROWSERENTRY), FileSortCallback);
-	
-		browser.numEntries += i;
-	}
-
-	if(entry == NULL || parseHalt)
-	{
-		closedir(dir); // close directory
-		dir = NULL;
-		
-		return false; // no more entries
-	}
-	return true; // more entries
-}
-
-/***************************************************************************
- * Browse subdirectories
- **************************************************************************/
-int
-ParseDirectory(bool waitParse, bool filter)
-{
-	int retry = 1;
-	bool mounted = false;
-	parseFilter = filter;
-	
-	ResetBrowser(); // reset browser
-	
-	// add trailing slash
-	if(browser.dir[strlen(browser.dir)-1] != '/')
-		strcat(browser.dir, "/");
-
-	// open the directory
-	while(dir == NULL && retry == 1)
-	{
-		mounted = ChangeInterface(browser.dir, NOTSILENT);
-
-		if(mounted)
-			dir = opendir(browser.dir);
-		else
-			return -1;
-
-		if(dir == NULL)
-			retry = ErrorPromptRetry("Error opening directory!");
-	}
-
-	// if we can't open the dir, try higher levels
-	if (dir == NULL)
-	{
-		char * devEnd = strrchr(browser.dir, '/');
-
-		while(!IsDeviceRoot(browser.dir))
-		{
-			devEnd[0] = 0; // strip slash
-			devEnd = strrchr(browser.dir, '/');
-
-			if(devEnd == NULL)
-				break;
-
-			devEnd[1] = 0; // strip remaining file listing
-			dir = opendir(browser.dir);
-			if (dir)
-				break;
-		}
-	}
-	
-	if(dir == NULL)
-		return -1;
-
-	if(IsDeviceRoot(browser.dir))
-	{
-		AddBrowserEntry();
-		sprintf(browserList[0].filename, "..");
-		sprintf(browserList[0].displayname, "Up One Level");
-		browserList[0].isdir = 1; // flag this as a dir
-		browserList[0].icon = ICON_FOLDER;
-		browser.numEntries++;
-	}
-
-	parseHalt = false;
-	ParseDirEntries(); // index first 20 entries
-
-	// signal parse thread to continue indexing remaining entries
-	LWP_MutexLock(parseMutex);
-	parseActive = true;
-	LWP_CondSignal(parseCond);
-	LWP_MutexUnlock(parseMutex);
-
-	if(waitParse) // wait for complete parsing
-	{
-		ShowAction("Loading...");
-
-		LWP_MutexLock(parseMutex);
-		while(parseActive)
-			LWP_CondWait(parseIdleCond, parseMutex);
-		LWP_MutexUnlock(parseMutex);
-
-		CancelAction();
-	}
-
-	return browser.numEntries;
 }
 
 bool DirExists(const char * path) {
@@ -797,46 +472,12 @@ FreeSaveBuffer ()
 }
 
 /****************************************************************************
- * LoadSzFile
- * Loads the selected file # from the specified 7z into rbuffer
- * Returns file size
- ***************************************************************************/
-size_t
-LoadSzFile(char * filepath, unsigned char * rbuffer)
-{
-	size_t size = 0;
-
-	// stop checking if devices were removed/inserted
-	// since we're loading a file
-	HaltDeviceThread();
-
-	// halt parsing
-	HaltParseThread();
-
-	file = fopen (filepath, "rb");
-	if (file)
-	{
-		size = SzExtractFile(browserList[browser.selIndex].filenum, rbuffer);
-		fclose (file);
-	}
-	else
-	{
-		ErrorPrompt("Error opening file!");
-	}
-
-	// go back to checking if devices were inserted/removed
-	ResumeDeviceThread();
-
-	return size;
-}
-
-/****************************************************************************
  * LoadFile
  ***************************************************************************/
 size_t
-LoadFile (char * rbuffer, char *filepath, size_t length, size_t buffersize, bool silent)
+LoadFile (char * rbuffer, char *filepath, size_t buffersize, bool silent)
 {
-	char zipbuffer[2048];
+	char probe[32];
 	size_t size = 0, offset = 0, readsize = 0;
 	int retry = 1;
 	int device;
@@ -847,9 +488,6 @@ LoadFile (char * rbuffer, char *filepath, size_t length, size_t buffersize, bool
 	// stop checking if devices were removed/inserted
 	// since we're loading a file
 	HaltDeviceThread();
-
-	// halt parsing
-	HaltParseThread();
 
 	// open the file
 	while(retry)
@@ -868,50 +506,36 @@ LoadFile (char * rbuffer, char *filepath, size_t length, size_t buffersize, bool
 			continue;
 		}
 
-		if(length > 0 && length <= 2048) // do a partial read (eg: to check file header)
+		readsize = fread (probe, 1, sizeof(probe), file);
+
+		if(!readsize)
 		{
-			size = fread (rbuffer, 1, length, file);
+			unmountRequired[device] = true;
+			retry = ErrorPromptRetry("Error reading file!");
+			fclose (file);
+			continue;
 		}
-		else // load whole file
-		{
-			readsize = fread (zipbuffer, 1, 32, file);
 
-			if(!readsize)
+		fseeko(file,0,SEEK_END);
+		size = ftello(file);
+		fseeko(file,0,SEEK_SET);
+
+		if(size > buffersize) {
+			size = 0;
+		}
+		else {
+			while(!feof(file))
 			{
-				unmountRequired[device] = true;
-				retry = ErrorPromptRetry("Error reading file!");
-				fclose (file);
-				continue;
+				ShowProgress ("Loading...", offset, size);
+				readsize = fread (rbuffer + offset, 1, 4096, file); // read in next chunk
+
+				if(readsize <= 0)
+					break; // reading finished (or failed)
+
+				offset += readsize;
 			}
-
-			if (IsZipFile (zipbuffer))
-			{
-				size = UnZipBuffer ((unsigned char *)rbuffer, buffersize); // unzip
-			}
-			else
-			{
-				fseeko(file,0,SEEK_END);
-				size = ftello(file);
-				fseeko(file,0,SEEK_SET);
-
-				if(size > buffersize) {
-					size = 0;
-				}
-				else {
-					while(!feof(file))
-					{
-						ShowProgress ("Loading...", offset, size);
-						readsize = fread (rbuffer + offset, 1, 4096, file); // read in next chunk
-
-						if(readsize <= 0)
-							break; // reading finished (or failed)
-
-						offset += readsize;
-					}
-					size = offset;
-					CancelAction();
-				}
-			}
+			size = offset;
+			CancelAction();
 		}
 		retry = 0;
 		fclose (file);
@@ -925,10 +549,9 @@ LoadFile (char * rbuffer, char *filepath, size_t length, size_t buffersize, bool
 
 size_t LoadFile(char * filepath, bool silent)
 {
-	return LoadFile((char *)savebuffer, filepath, 0, SAVEBUFFERSIZE, silent);
+	return LoadFile((char *)savebuffer, filepath, SAVEBUFFERSIZE, silent);
 }
 
-#ifdef HW_RVL
 size_t LoadFont(char * filepath)
 {
 	FILE *file = fopen (filepath, "rb");
@@ -992,7 +615,6 @@ void LoadBgMusic()
 	bg_music = ogg_data;
 	bg_music_size = ogg_size;
 }
-#endif
 
 /****************************************************************************
  * SaveFile
@@ -1015,9 +637,6 @@ SaveFile (char * buffer, char *filepath, size_t datasize, bool silent)
 	// stop checking if devices were removed/inserted
 	// since we're saving a file
 	HaltDeviceThread();
-
-	// halt parsing
-	HaltParseThread();
 
 	if(!silent)
 		ShowAction("Saving...");

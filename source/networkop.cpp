@@ -5,24 +5,19 @@
  *
  * networkop.cpp
  *
- * Network and SMB support routines
+ * Network support routines
  ****************************************************************************/
 
 #include <errno.h>
 #include <network.h>
 #include <ogc/lwp_watchdog.h>
-#include <smb.h>
 
 #include "snes9xgx.h"
 #include "menu.h"
-#include "fileop.h"
-#include "filebrowser.h"
 
 static bool networkInit = false;
-static bool networkShareInit = false;
 char wiiIP[16] = { 0 };
 
-#ifdef HW_RVL
 static int netHalt = 0;
 
 /****************************************************************************
@@ -136,21 +131,14 @@ void StopNetworkThread()
 	networkthread = LWP_THREAD_NULL;
 }
 
-#endif
-
 bool InitializeNetwork(bool silent)
 {
-#ifdef HW_RVL
 	StopNetworkThread();
 
 	if(networkInit && net_gethostip() > 0)
 		return true;
 
 	networkInit = false;
-#else
-	if(networkInit)
-		return true;
-#endif
 
 	int retry = 1;
 
@@ -158,7 +146,6 @@ bool InitializeNetwork(bool silent)
 	{
 		ShowAction("Initializing network...");
 
-#ifdef HW_RVL
 		u64 start = gettime();
 		StartNetworkThread();
 
@@ -169,9 +156,6 @@ bool InitializeNetwork(bool silent)
 			if(diff_sec(start, gettime()) > 10) // wait for 10 seconds max for net init
 				break;
 		}
-#else
-		networkInit = !(if_config(wiiIP, NULL, NULL, true) < 0);
-#endif
 
 		CancelAction();
 
@@ -180,76 +164,9 @@ bool InitializeNetwork(bool silent)
 
 		retry = ErrorPromptRetry("Unable to initialize network!");
 		
-#ifdef HW_RVL  	
 		if(networkInit && net_gethostip() > 0)
-#else
-		if(networkInit)
-#endif
 			return true;
 	}
 	return networkInit;
 }
 
-void CloseShare()
-{
-	if(networkShareInit)
-		smbClose("smb");
-	networkShareInit = false;
-	isMounted[DEVICE_SMB] = false;
-}
-
-/****************************************************************************
- * Mount SMB Share
- ****************************************************************************/
-
-bool
-ConnectShare (bool silent)
-{
-	if(networkShareInit)
-		return true;
-
-	int retry = 1;
-	bool invalidShare = strlen(GCSettings.smbshare) == 0;
-	bool invalidIp = strlen(GCSettings.smbip) == 0;
-
-	if(invalidShare || invalidIp)
-	{
-		if(!silent)
-		{
-			char msg[50];
-			char msg2[100];
-			if(invalidShare && invalidIp) // more than one thing is wrong
-				sprintf(msg, "Check settings.xml.");
-			else if(invalidShare)
-				sprintf(msg, "Share name is blank.");
-			else if(invalidIp)
-				sprintf(msg, "Share IP is blank.");
-
-			sprintf(msg2, "Invalid network settings - %s", msg);
-			ErrorPrompt(msg2);
-		}
-		return false;
-	}
-
-	if(!InitializeNetwork(silent))
-		return false;
-
-	while(retry)
-	{
-		if(!silent)
-			ShowAction ("Connecting to network share...");
-		
-		if(smbInit(GCSettings.smbuser, GCSettings.smbpwd, GCSettings.smbshare, GCSettings.smbip))
-			networkShareInit = true;
-
-		if(networkShareInit || silent)
-			break;
-
-		retry = ErrorPromptRetry("Failed to connect to network share.");
-	}
-
-	if(!silent)
-		CancelAction();
-
-	return networkShareInit;
-}

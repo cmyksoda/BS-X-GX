@@ -1,4 +1,3 @@
-#ifdef HW_RVL
 #include <gccore.h>
 
 #define RETRODE_VID 0x0403
@@ -182,4 +181,3 @@ char* Retrode_Status()
 	return deviceId ? "connected" : "not found";
 }
 
-#endif

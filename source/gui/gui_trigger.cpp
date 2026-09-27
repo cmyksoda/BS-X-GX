@@ -98,7 +98,6 @@ void GuiTrigger::SetButtonOnlyInFocusTrigger(s32 ch, u32 wiibtns, u16 gcbtns, u1
 
 s8 GuiTrigger::WPAD_Stick(u8 stick, int axis)
 {
-	#ifdef HW_RVL
 	struct joystick_t* js = NULL;
 
 	switch (wpad->exp.type) {
@@ -157,7 +156,6 @@ s8 GuiTrigger::WPAD_Stick(u8 stick, int axis)
 			return (s8)(128.0 * ((float)pos / (float)(center - min)));
 		}
 	}
-	#endif
 	return 0;
 }
 

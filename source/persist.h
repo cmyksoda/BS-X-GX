@@ -20,6 +20,5 @@ bool PersistLoadAll(bool silent);
 void PersistResume();
 void PersistTick();
 void PersistFlushSync();			// leaves the writer paused until PersistResume
-bool PersistDirty();
 
 #endif

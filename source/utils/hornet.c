@@ -1,4 +1,3 @@
-#ifdef HW_RVL
 #include <gccore.h>
 
 #define HORNET_VID 0x0079
@@ -158,4 +157,3 @@ char* Hornet_Status()
 	return deviceId ? "connected" : "not found";
 }
 
-#endif

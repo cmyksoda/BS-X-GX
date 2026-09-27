@@ -1,4 +1,3 @@
-#ifdef HW_RVL
 #include <gccore.h>
 #include <ogc/usb.h>
 
@@ -323,4 +322,3 @@ char* XBOX360_Status()
 	return deviceId ? "connected" : "not found";
 }
 
-#endif
