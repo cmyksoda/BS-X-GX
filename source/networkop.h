@@ -11,6 +11,7 @@
 #ifndef _NETWORKOP_H_
 #define _NETWORKOP_H_
 
+bool InitializeNetwork(bool silent);
 bool ConnectShare (bool silent);
 void CloseShare();
 

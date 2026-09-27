@@ -49,6 +49,7 @@
 #include "snes9x/cheats.h"
 #include "bsxboot.h"
 #include "persist.h"
+#include "station.h"
 
 extern SCheatData Cheat;
 extern void ToggleCheat(uint32);
@@ -1034,6 +1035,24 @@ static int MenuBSXBoot()
 		break;
 	}
 
+	if(GCSettings.stationURL[0])
+	{
+		ShowAction("Tuning in to the station...");
+		if(InitializeNetwork(SILENT))
+		{
+			StationStart(GCSettings.stationURL);
+			StationStatus st;
+			for(int i = 0; i < 150; i++)	// the town works offline too, so don't wait long
+			{
+				StationGetStatus(&st);
+				if(st.state == STATION_ONAIR || st.state == STATION_ERROR)
+					break;
+				usleep(100000);
+			}
+		}
+		CancelAction();
+	}
+
 	GCSettings.AutoloadGame = true;	// the Home menu offers Exit instead of a game browser
 	return MENU_EXIT;
 }
@@ -1448,9 +1467,20 @@ static int MenuGame()
 {
 	int menu = MENU_NONE;
 	
-	GuiText titleTxt((char *)Memory.ROMFilename, 22, (GXColor){255, 255, 255, 255});
+	char onAir[96] = "BS-X";
+	StationStatus st;
+	StationGetStatus(&st);
+	if(st.state == STATION_ONAIR)
+		snprintf(onAir, sizeof(onAir), "On air: %s (%d min left)", st.title, (st.secondsLeft + 59) / 60);
+	else if(st.state == STATION_TUNING)
+		snprintf(onAir, sizeof(onAir), "Tuning in...");
+	else if(st.state == STATION_ERROR)
+		snprintf(onAir, sizeof(onAir), "No signal: %s", st.error);
+
+	GuiText titleTxt(onAir, 22, (GXColor){255, 255, 255, 255});
 	titleTxt.SetAlignment(ALIGN_LEFT, ALIGN_TOP);
 	titleTxt.SetPosition(50,40);
+	titleTxt.SetMaxWidth(screenwidth - 200);
 
 	GuiSound btnSoundOver(button_over_pcm, button_over_pcm_size, SOUND_PCM);
 	GuiSound btnSoundClick(button_click_pcm, button_click_pcm_size, SOUND_PCM);
@@ -4707,10 +4737,9 @@ static int MenuSettingsNetwork()
 	int i = 0;
 	bool firstRun = true;
 	OptionList options;
-	sprintf(options.name[i++], "SMB Share IP");
-	sprintf(options.name[i++], "SMB Share Name");
-	sprintf(options.name[i++], "SMB Share Username");
-	sprintf(options.name[i++], "SMB Share Password");
+	char oldStation[sizeof(GCSettings.stationURL)];
+	strcpy(oldStation, GCSettings.stationURL);
+	sprintf(options.name[i++], "Station Address");
 	options.length = i;
 
 	for(i=0; i < options.length; i++)
@@ -4769,29 +4798,14 @@ static int MenuSettingsNetwork()
 		switch (ret)
 		{
 			case 0:
-				OnScreenKeyboard(GCSettings.smbip, 80);
-				break;
-
-			case 1:
-				OnScreenKeyboard(GCSettings.smbshare, 20);
-				break;
-
-			case 2:
-				OnScreenKeyboard(GCSettings.smbuser, 20);
-				break;
-
-			case 3:
-				OnScreenKeyboard(GCSettings.smbpwd, 20);
+				OnScreenKeyboard(GCSettings.stationURL, sizeof(GCSettings.stationURL) - 1);
 				break;
 		}
 
 		if(ret >= 0 || firstRun)
 		{
 			firstRun = false;
-			snprintf (options.value[0], 25, "%s", GCSettings.smbip);
-			snprintf (options.value[1], 19, "%s", GCSettings.smbshare);
-			snprintf (options.value[2], 19, "%s", GCSettings.smbuser);
-			snprintf (options.value[3], 19, "%s", GCSettings.smbpwd);
+			snprintf (options.value[0], 30, "%s", GCSettings.stationURL[0] ? GCSettings.stationURL : "Not set");
 			optionBrowser.TriggerUpdate();
 		}
 
@@ -4805,6 +4819,9 @@ static int MenuSettingsNetwork()
 	mainWindow->Remove(&w);
 	mainWindow->Remove(&titleTxt);
 	CloseShare();
+
+	if(strcmp(oldStation, GCSettings.stationURL) != 0 && (!GCSettings.stationURL[0] || InitializeNetwork(NOTSILENT)))
+		StationStart(GCSettings.stationURL);
 	return menu;
 }
 

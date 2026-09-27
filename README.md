@@ -10,13 +10,15 @@ This is a heavily trimmed fork of [Snes9x GX](https://github.com/dborth/snes9xgx
 The satellite data format is [SatellaWave](https://github.com/LuigiBlood/sat_wave)'s (LuigiBlood).  
 The station server lives in a separate repository, **bsx-station**.
 
-> Status: early development. Nothing here is released yet.
+> Status: early development. Nothing here is released yet. The whole loop (tune in, download, play) works in
+> Dolphin; real-hardware testing is next.
 
 ## What you need
 
 - A Wii (or Wii U in vWii mode) with the Homebrew Channel. An SD card or USB drive.
 - **`BS-X.bin`** — the 1 MB Satellaview BS-X ROM, English + No-DRM version, from the [BS-X Project](https://project.satellaview.org/downloads.htm). **Not included** — put it at `sd:/bsx-gx/BS-X.bin` (or `usb:/bsx-gx/BS-X.bin`).
-- A station to tune to (its address is entered once in Settings → Network).
+- A station to tune to: Home → Settings → Network → **Station Address**, as `host` or `host:port`. Without one,
+  the town still works offline, like a Satellaview with no dish.
 
 ## Install
 
