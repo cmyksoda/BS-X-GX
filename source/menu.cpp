@@ -1801,7 +1801,7 @@ static int MenuGame()
 					ExitApp();
 				}
 				else {
-					gameScreenImg = new GuiImage(screenwidth, screenheight, (GXColor){175, 200, 215, 255});
+					gameScreenImg = new GuiImage(screenwidth, screenheight, (GXColor){185, 185, 185, 255});
 					gameScreenImg->ColorStripe(10);
 					mainWindow->Insert(gameScreenImg, 0);
 					ResumeGui();
@@ -5063,7 +5063,7 @@ MainMenu (int menu)
 	}
 
 	if(gameScreenImg == NULL) {
-		gameScreenImg = new GuiImage(screenwidth, screenheight, (GXColor){175, 200, 215, 255});
+		gameScreenImg = new GuiImage(screenwidth, screenheight, (GXColor){185, 185, 185, 255});
 		gameScreenImg->ColorStripe(10);
 	}
 
