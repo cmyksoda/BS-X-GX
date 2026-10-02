@@ -79,6 +79,7 @@ static int ParseManifest(char *text, char *slot, char *title, char *next, int *e
 	int count = 0;
 	bool header = false, ended = false;
 	*endsIn = 0;
+
 	for(char *line = strtok(text, "\n"); line; line = strtok(NULL, "\n"))
 	{
 		int version;
@@ -129,6 +130,7 @@ static const char *Receive(int count)
 		if((u32)n != f.size || crc32(crc32(0L, Z_NULL, 0), dst, f.size) != f.crc)
 			return "broadcast arrived damaged";
 	}
+
 	// swapping mid-download makes the BIOS announce the new program and drop the game
 	for(int i = 0; i < 1800 && BSXStreamReceiving(3000); i++)
 		usleep(100000);
@@ -205,12 +207,14 @@ static void *StationThread(void *arg)
 		status.error[0] = 0;
 		snprintf(status.title, sizeof(status.title), "%s", title);
 		snprintf(status.next, sizeof(status.next), "%s", next);
-		onAirSince = fetched;	// ends_in counts from the fetch, not from a swap held back by a download
+		// ends_in counts from the fetch, not from a swap held back by a download
+		onAirSince = fetched;
 		onAirLength = endsIn;
 		LWP_MutexUnlock(statusMutex);
 
 		// a little jitter so a room full of Wiis doesn't hit the station in the same second
-		int wait = endsIn - (int)(ticks_to_millisecs(diff_ticks(fetched, gettime())) / 1000) + 5 + (rand() % 10);
+		int wait = endsIn - (int)(ticks_to_millisecs(diff_ticks(fetched, gettime())) / 1000) +
+		           5 + (rand() % 10);
 		Nap(wait < 20 ? 20 : wait > 600 ? 600 : wait);
 	}
 	return NULL;
@@ -249,7 +253,8 @@ void StationGetStatus(StationStatus *out)
 	*out = status;
 	if(status.state == STATION_ONAIR)
 	{
-		int left = onAirLength - (int)(ticks_to_millisecs(diff_ticks(onAirSince, gettime())) / 1000);
+		int left = onAirLength -
+		           (int)(ticks_to_millisecs(diff_ticks(onAirSince, gettime())) / 1000);
 		out->secondsLeft = left > 0 ? left : 0;
 	}
 	LWP_MutexUnlock(statusMutex);

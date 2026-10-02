@@ -99,7 +99,11 @@ static bool WriteAtomic(const char *path, const uint8 *data, uint32 size, bool y
 	{
 		uint32 n = size - off;
 		if(n > WRITE_CHUNK) n = WRITE_CHUNK;
-		if(fwrite(data + off, 1, n, f) != n) { ok = false; break; }
+		if(fwrite(data + off, 1, n, f) != n)
+		{
+			ok = false;
+			break;
+		}
 		off += n;
 		if(yield)
 			LWP_YieldThread();
@@ -150,7 +154,11 @@ static void * WriterThread(void *arg)
 			if(!paused)
 			{
 				for(int i = 0; i < BLOB_COUNT; i++)
-					if(blobs[i].pending) { which = i; break; }
+					if(blobs[i].pending)
+					{
+						which = i;
+						break;
+					}
 			}
 			if(which >= 0)
 				break;

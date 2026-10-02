@@ -113,7 +113,8 @@ int HttpGet(const char *host, u16 port, const char *path, u8 *buf, u32 max)
 
 	char req[512];
 	int n = snprintf(req, sizeof(req),
-		"GET %s HTTP/1.0\r\nHost: %s:%u\r\nUser-Agent: BS-X GX\r\nConnection: close\r\n\r\n", path, host, port);
+		"GET %s HTTP/1.0\r\nHost: %s:%u\r\nUser-Agent: BS-X GX\r\nConnection: close\r\n\r\n",
+		path, host, port);
 	if(!SendAll(s, req, n))
 	{
 		net_close(s);
@@ -166,6 +167,7 @@ int HttpGet(const char *host, u16 port, const char *path, u8 *buf, u32 max)
 				result = HTTP_ERR_HEADER;
 				break;
 			}
+
 			header[hlen] = 0;
 			int status = 0;
 			if(sscanf(header, "HTTP/%*d.%*d %d", &status) != 1)
@@ -185,6 +187,7 @@ int HttpGet(const char *host, u16 port, const char *path, u8 *buf, u32 max)
 				break;
 			}
 		}
+
 		if(got + left > max)
 		{
 			result = HTTP_ERR_TOOBIG;

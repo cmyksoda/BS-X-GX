@@ -39,7 +39,8 @@ void BSXStreamInit(u32 arenaSize)
 	for(int i = 0; i < 2; i++)
 	{
 		memset(&tables[i], 0, sizeof(BSXStreamTable));
-		tables[i].data = (u8 *)extmem_malloc(arenaSize);	// main thread only: the mspace isn't locked
+		// main thread only: the mspace isn't locked
+		tables[i].data = (u8 *)extmem_malloc(arenaSize);
 		tables[i].capacity = tables[i].data ? arenaSize : 0;
 	}
 }
@@ -52,7 +53,8 @@ BSXStreamTable *BSXStreamBeginBuild(int waitMs)
 		LWP_MutexLock(streamMutex);
 		BSXStreamTable *t = (current == &tables[0]) ? &tables[1] : &tables[0];
 		bool busy = false;
-		for(int i = 0; i < 2; i++)	// a fully read stream only ever returns 0xFF again, so it can let go
+		// a fully read stream only ever returns 0xFF again, so it can let go
+		for(int i = 0; i < 2; i++)
 			busy |= streams[i].table == t && streams[i].pos < streams[i].size;
 		if(!busy || waited >= waitMs)
 		{
@@ -111,7 +113,8 @@ u32 BSXStreamActivity()
 bool BSXStreamReceiving(u32 ms)
 {
 	for(int i = 0; i < 2; i++)
-		if(streams[i].data && streams[i].size >= DOWNLOAD_ENTRY_MIN && streams[i].pos < streams[i].size)
+		if(streams[i].data && streams[i].size >= DOWNLOAD_ENTRY_MIN &&
+		   streams[i].pos < streams[i].size)
 			return true;
 	u64 t = lastDownloadActivity;
 	return t && ticks_to_millisecs(diff_ticks(t, gettime())) < ms;
