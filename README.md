@@ -48,3 +48,7 @@ Output: `executables/bsx-gx-wii.dol`.
 - Snes9x: the Snes9x Team. libogc2 / devkitPPC: Extrems, shagkur, WinterMute.
 - SatellaWave & the Satellaview research it rests on: LuigiBlood. BS-X translation & No-DRM patch: the BS-X Project.
 - The upstream Snes9x GX README is preserved as `docs-upstream-snes9xgx-README.md`.
+
+---
+
+*This project was made with AI assistance. For more information, see [my AI usage statement](https://github.com/cmyksoda/cmyksoda/blob/main/AI_USAGE.md).*
