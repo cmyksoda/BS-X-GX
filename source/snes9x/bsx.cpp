@@ -867,6 +867,12 @@ uint8 S9xBSXGetRTC (void)
 
 	time(&t);
 	tmr = localtime(&t);
+#ifdef GEKKO
+	// a station's broadcast time wins, so a game that keeps to its broadcast hour sees that hour
+	struct tm	broadcast;
+	if (BSXStreamClock(&broadcast))
+		tmr = &broadcast;
+#endif
 
 	BSX.test2192[0] = 0x00;
 	BSX.test2192[1] = 0x00;

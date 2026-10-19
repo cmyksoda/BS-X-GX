@@ -29,6 +29,9 @@ static Stream streams[2];
 static mutex_t streamMutex = LWP_MUTEX_NULL;
 static volatile u32 activity = 0;
 static volatile u64 lastDownloadActivity = 0;
+static bool clockSet = false;
+static s64 clockMs;		// ms since 1970, read as UTC so gmtime gives the broadcast's own fields
+static u64 clockAt;
 
 // only program data comes in 32 KB data groups; the BIOS's own channels are tiny
 #define DOWNLOAD_ENTRY_MIN	20000
@@ -118,6 +121,35 @@ bool BSXStreamReceiving(u32 ms)
 			return true;
 	u64 t = lastDownloadActivity;
 	return t && ticks_to_millisecs(diff_ticks(t, gettime())) < ms;
+}
+
+void BSXStreamSetClock(s64 ms, u64 at)
+{
+	LWP_MutexLock(streamMutex);
+	clockMs = ms;
+	clockAt = at;
+	clockSet = true;
+	LWP_MutexUnlock(streamMutex);
+}
+
+void BSXStreamClearClock()
+{
+	LWP_MutexLock(streamMutex);
+	clockSet = false;
+	LWP_MutexUnlock(streamMutex);
+}
+
+bool BSXStreamClock(struct tm *out)
+{
+	LWP_MutexLock(streamMutex);
+	bool set = clockSet;
+	s64 ms = clockMs + (s64)ticks_to_millisecs(diff_ticks(clockAt, gettime()));
+	LWP_MutexUnlock(streamMutex);
+	if(!set)
+		return false;
+	time_t t = ms / 1000;
+	gmtime_r(&t, out);
+	return true;
 }
 
 bool BSXStreamOpen(int which, u16 lci, u16 index, u32 *size)

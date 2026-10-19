@@ -73,18 +73,30 @@ static bool ParseUrl(const char *url)
 	return host[0] && port;
 }
 
-// plain text, one field per line; see bsx-station/satdata/slot.py
-static int ParseManifest(char *text, char *slot, char *title, char *next, int *endsIn)
+static s64 DaysFromCivil(int y, int m, int d)
+{
+	y -= m <= 2;
+	int era = (y >= 0 ? y : y - 399) / 400;
+	int yoe = y - era * 400;
+	int doy = (153 * (m > 2 ? m - 3 : m + 9) + 2) / 5 + d - 1;
+	return (s64)era * 146097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719468;
+}
+
+// plain text, one field per line; see bsx-station/station/slots.py
+static int ParseManifest(char *text, char *slot, char *title, char *next, int *endsIn, s64 *clockMs)
 {
 	int count = 0;
 	bool header = false, ended = false;
 	*endsIn = 0;
+	*clockMs = -1;
 
 	for(char *line = strtok(text, "\n"); line; line = strtok(NULL, "\n"))
 	{
-		int version;
+		int version, y, mo, d, h, mi, s, elapsed;
 		if(sscanf(line, "bsxgx %d", &version) == 1)
 			header = version == 1;
+		else if(sscanf(line, "clock %d-%d-%d %d:%d:%d %d", &y, &mo, &d, &h, &mi, &s, &elapsed) == 7)
+			*clockMs = ((DaysFromCivil(y, mo, d) * 24 + h) * 60 + mi) * 60000 + s * 1000 + elapsed;
 		else if(!strncmp(line, "slot ", 5))
 			snprintf(slot, 32, "%s", line + 5);
 		else if(!strncmp(line, "title ", 6))
@@ -156,6 +168,7 @@ static void *StationThread(void *arg)
 			if(!pendingUrl[0])
 			{
 				BSXStreamClear();
+				BSXStreamClearClock();
 				SetStatus(STATION_OFF, NULL);
 				while(!urlChanged)
 					Nap(3600);
@@ -182,7 +195,8 @@ static void *StationThread(void *arg)
 
 		char slot[32] = "", title[64] = "", next[64] = "";
 		int endsIn;
-		int count = ParseManifest(manifest, slot, title, next, &endsIn);
+		s64 clockMs;
+		int count = ParseManifest(manifest, slot, title, next, &endsIn, &clockMs);
 		if(count <= 0)
 		{
 			SetStatus(STATION_ERROR, "the station sent something odd");
@@ -200,6 +214,11 @@ static void *StationThread(void *arg)
 				continue;
 			}
 			snprintf(currentSlot, sizeof(currentSlot), "%s", slot);
+			// set once per slot, so the clock a game is following never steps back mid-broadcast
+			if(clockMs >= 0)
+				BSXStreamSetClock(clockMs, fetched);
+			else
+				BSXStreamClearClock();
 		}
 
 		LWP_MutexLock(statusMutex);

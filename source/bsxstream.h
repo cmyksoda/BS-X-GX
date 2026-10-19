@@ -10,6 +10,7 @@
 #define _BSXSTREAM_H_
 
 #include <gctypes.h>
+#include <time.h>
 
 #define BSX_STREAM_MAX_FILES	320
 
@@ -39,6 +40,11 @@ void BSXStreamPublish(BSXStreamTable *t);
 void BSXStreamClear();
 u32 BSXStreamActivity();
 bool BSXStreamReceiving(u32 ms);
+
+// the satellite's clock: the broadcast time the station gave, running on from the tick it was true at
+void BSXStreamSetClock(s64 ms, u64 at);
+void BSXStreamClearClock();
+bool BSXStreamClock(struct tm *out);
 
 // core side, emulation thread only
 bool BSXStreamOpen(int which, u16 lci, u16 index, u32 *size);
