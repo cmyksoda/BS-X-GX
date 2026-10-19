@@ -1293,7 +1293,13 @@ void S9xSetBSXPPU (uint8 byte, uint16 address)
 
 uint8 * S9xGetBasePointerBSX (uint32 address)
 {
-	return (MapROM);
+	// games run from the pack in flash I/O mode (BS F-Zero GP), so code fetches need BSX_Get_Bypass_FlashIO's
+	// bank mapping; its status reads only matter while the flash is busy, when nothing runs from it
+	uint8	*flash = Memory.ROM + Multi.cartOffsetB;
+
+	if (BSX.prevMMC[0x02])
+		return (flash + (address & 0x0F0000));
+	return (flash + ((address & 0x1F0000) >> 1) - (address & 0x8000));
 }
 
 static bool8 BSX_LoadBIOS (void)
