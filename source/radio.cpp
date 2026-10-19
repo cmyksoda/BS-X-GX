@@ -229,5 +229,5 @@ void RadioGetStatus(RadioStatus *out)
 	out->playing = playing;
 	out->heard = playing && GCSettings.RadioVolume > 0 && !(BSX.PPU[REG_2197] & RECEIVER_OFF);
 	out->msIn = rate ? (s32)((u64)readPos * 1000 / rate) : 0;
-	out->broadcastMs = BSXStreamClockMs(&now) ? (s32)(now - wantedStart) : -1;
+	out->broadcastMs = wantedPath[0] && BSXStreamClockMs(&now) ? (s32)(now - wantedStart) : -1;
 }
