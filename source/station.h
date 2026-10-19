@@ -28,6 +28,8 @@ struct StationStatus
 
 void StationStart(const char *url);
 void StationRefresh();
+// the radio setting changed: fetch or drop the slot's radio now
+void StationRetune();
 void StationGetStatus(StationStatus *out);
 
 #endif

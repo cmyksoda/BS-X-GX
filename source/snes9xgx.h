@@ -160,6 +160,7 @@ struct SGCSettings{
 	bool	FrameSkip;
 	int		Interpolation;
 	bool	MuteAudio;
+	int		RadioVolume;	// SoundLink radio, 0-100
 	
 	int		Controller;
 	int		WiimoteOrientation;

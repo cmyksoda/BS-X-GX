@@ -10,6 +10,7 @@
 #define _HTTP_H_
 
 #include <gctypes.h>
+#include <stdio.h>
 
 enum
 {
@@ -19,11 +20,14 @@ enum
 	HTTP_ERR_HEADER = -4,
 	HTTP_ERR_STATUS = -5,
 	HTTP_ERR_TOOBIG = -6,
-	HTTP_ERR_RECEIVE = -7
+	HTTP_ERR_RECEIVE = -7,
+	HTTP_ERR_WRITE = -8
 };
 
 // Returns the body length, or an HTTP_ERR_* code. Blocks; call from a worker thread.
 int HttpGet(const char *host, u16 port, const char *path, u8 *buf, u32 max);
+// The same into an open file, with the body's CRC-32.
+int HttpGetFile(const char *host, u16 port, const char *path, FILE *f, u32 max, u32 *crc);
 const char *HttpErrorString(int err);
 
 #endif

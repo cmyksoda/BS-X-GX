@@ -12,6 +12,7 @@
 #include <asndlib.h>
 #endif
 #include "snes9xgx.h"
+#include "radio.h"
 #include "video.h"
 
 #include "snes9x/memmap.h"
@@ -146,6 +147,7 @@ static void S9xAudioCallback (void *data) {
 
 		if(!turbo_drop && unplayed < MAX_QUEUED_BUFFERS) {
 			S9xMixSamples(soundbuffer[nextab], SAMPLES_TO_PROCESS);
+			RadioMix((s16 *)soundbuffer[nextab], SAMPLES_TO_PROCESS / 2);
 			DCFlushRange(soundbuffer[nextab], AUDIOBUFFER);
 			nextab = nextIndex(nextab);
 

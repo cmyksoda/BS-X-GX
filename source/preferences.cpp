@@ -154,6 +154,7 @@ preparePrefsData ()
 	createXMLSetting("FrameSkip", "Frame Skipping", BtoStr(GCSettings.FrameSkip));
 	createXMLSetting("Interpolation", "Interpolation", toStr(GCSettings.Interpolation));
 	createXMLSetting("MuteAudio", "Mute", BtoStr(GCSettings.MuteAudio));
+	createXMLSetting("RadioVolume", "SoundLink Radio Volume", toStr(GCSettings.RadioVolume));
 
 	createXMLSection("Menu", "Menu Settings");
 
@@ -306,6 +307,7 @@ decodePrefsData ()
 	loadXMLSetting(&GCSettings.FrameSkip, "FrameSkip");
 	loadXMLSetting(&GCSettings.Interpolation, "Interpolation");
 	loadXMLSetting(&GCSettings.MuteAudio, "MuteAudio");
+	loadXMLSetting(&GCSettings.RadioVolume, "RadioVolume");
 
 	// Menu Settings
 
@@ -357,6 +359,8 @@ void FixInvalidSettings()
 		GCSettings.videoXshift = 0;
 	if(!(GCSettings.videoYshift > -50 && GCSettings.videoYshift < 50))
 		GCSettings.videoYshift = 0;
+	if(!(GCSettings.RadioVolume >= 0 && GCSettings.RadioVolume <= 100))
+		GCSettings.RadioVolume = 100;
 	if(!(GCSettings.SFXVolume >= 0 && GCSettings.SFXVolume <= 100))
 		GCSettings.SFXVolume = 40;
 	if(GCSettings.language < 0 || GCSettings.language >= LANG_LENGTH)
@@ -444,6 +448,7 @@ DefaultSettings ()
 	Settings.DynamicRateControl = true;
 	Settings.SeparateEchoBuffer = false;
 	GCSettings.MuteAudio = false;
+	GCSettings.RadioVolume = 100;
 	GCSettings.Interpolation = 0;
 	Settings.InterpolationMethod = DSP_INTERPOLATION_GAUSSIAN;
 

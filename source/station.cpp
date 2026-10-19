@@ -9,14 +9,20 @@
 #include <gccore.h>
 #include <ogc/lwp_watchdog.h>
 #include <ogc/mutex.h>
+#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/param.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <zlib.h>
 
+#include "snes9xgx.h"
 #include "bsxstream.h"
+#include "fileop.h"
+#include "radio.h"
 #include "station.h"
 #include "utils/http.h"
 
@@ -27,6 +33,13 @@ struct ManifestFile
 {
 	u16 lci;
 	u16 index;
+	u32 size;
+	u32 crc;
+	char path[96];
+};
+
+struct ManifestRadio
+{
 	u32 size;
 	u32 crc;
 	char path[96];
@@ -45,7 +58,9 @@ static char host[96];
 static u16 port = 80;
 static char manifest[MANIFEST_MAX + 1];
 static ManifestFile files[BSX_STREAM_MAX_FILES];
+static ManifestRadio radio;
 static char currentSlot[32];
+static char tunedSlot[32];
 
 static void SetStatus(int state, const char *error)
 {
@@ -83,12 +98,14 @@ static s64 DaysFromCivil(int y, int m, int d)
 }
 
 // plain text, one field per line; see bsx-station/station/slots.py
-static int ParseManifest(char *text, char *slot, char *title, char *next, int *endsIn, s64 *clockMs)
+static int ParseManifest(char *text, char *slot, char *title, char *next, int *endsIn, s64 *startMs,
+                         s64 *elapsedMs)
 {
 	int count = 0;
 	bool header = false, ended = false;
 	*endsIn = 0;
-	*clockMs = -1;
+	*startMs = -1;
+	radio.size = 0;
 
 	for(char *line = strtok(text, "\n"); line; line = strtok(NULL, "\n"))
 	{
@@ -96,7 +113,15 @@ static int ParseManifest(char *text, char *slot, char *title, char *next, int *e
 		if(sscanf(line, "bsxgx %d", &version) == 1)
 			header = version == 1;
 		else if(sscanf(line, "clock %d-%d-%d %d:%d:%d %d", &y, &mo, &d, &h, &mi, &s, &elapsed) == 7)
-			*clockMs = ((DaysFromCivil(y, mo, d) * 24 + h) * 60 + mi) * 60000 + s * 1000 + elapsed;
+		{
+			*startMs = ((DaysFromCivil(y, mo, d) * 24 + h) * 60 + mi) * 60000 + s * 1000;
+			*elapsedMs = elapsed;
+		}
+		else if(!strncmp(line, "radio ", 6))
+		{
+			if(sscanf(line, "radio %u %x %95s", &radio.size, &radio.crc, radio.path) != 3)
+				radio.size = 0;
+		}
 		else if(!strncmp(line, "slot ", 5))
 			snprintf(slot, 32, "%s", line + 5);
 		else if(!strncmp(line, "title ", 6))
@@ -150,6 +175,52 @@ static const char *Receive(int count)
 	return NULL;
 }
 
+// SoundLink: the slot's radio track, fetched to SD once (checked by size and CRC) and handed to the radio
+static bool TuneRadio(s64 startMs)
+{
+	// off in the settings means nothing is fetched either
+	if(!radio.size || startMs < 0 || GCSettings.SaveMethod == DEVICE_AUTO || GCSettings.RadioVolume == 0)
+	{
+		RadioSet("", 0);
+		return true;
+	}
+	char dir[MAXPATHLEN], path[MAXPATHLEN], other[MAXPATHLEN];
+	snprintf(dir, sizeof(dir), "%s%s/radio", pathPrefix[GCSettings.SaveMethod], APPFOLDER);
+	const char *name = strrchr(radio.path, '/');
+	snprintf(path, sizeof(path), "%s/%s", dir, name ? name + 1 : radio.path);
+
+	struct stat st;
+	if(stat(path, &st) != 0 || (u32)st.st_size != radio.size)
+	{
+		RadioSet("", 0);
+		CreateDirectory(dir);
+		// one broadcast's radio at a time: an hour is about 40 MB
+		DIR *d = opendir(dir);
+		for(struct dirent *e; d && (e = readdir(d)); )
+		{
+			if(e->d_name[0] == '.')
+				continue;
+			snprintf(other, sizeof(other), "%s/%s", dir, e->d_name);
+			remove(other);
+		}
+		if(d)
+			closedir(d);
+		snprintf(other, sizeof(other), "%s.part", path);
+		FILE *f = fopen(other, "wb");
+		u32 crc = 0;
+		int n = f ? HttpGetFile(host, port, radio.path, f, radio.size, &crc) : HTTP_ERR_WRITE;
+		if(f)
+			fclose(f);
+		if(n != (int)radio.size || crc != radio.crc || rename(other, path) != 0)
+		{
+			remove(other);
+			return false;
+		}
+	}
+	RadioSet(path, startMs);
+	return true;
+}
+
 static void Nap(int seconds)
 {
 	for(int i = 0; i < seconds * 10 && !refresh; i++)
@@ -165,10 +236,12 @@ static void *StationThread(void *arg)
 		{
 			urlChanged = false;
 			currentSlot[0] = 0;
+			tunedSlot[0] = 0;
 			if(!pendingUrl[0])
 			{
 				BSXStreamClear();
 				BSXStreamClearClock();
+				RadioSet("", 0);
 				SetStatus(STATION_OFF, NULL);
 				while(!urlChanged)
 					Nap(3600);
@@ -195,8 +268,8 @@ static void *StationThread(void *arg)
 
 		char slot[32] = "", title[64] = "", next[64] = "";
 		int endsIn;
-		s64 clockMs;
-		int count = ParseManifest(manifest, slot, title, next, &endsIn, &clockMs);
+		s64 startMs, elapsedMs;
+		int count = ParseManifest(manifest, slot, title, next, &endsIn, &startMs, &elapsedMs);
 		if(count <= 0)
 		{
 			SetStatus(STATION_ERROR, "the station sent something odd");
@@ -215,8 +288,8 @@ static void *StationThread(void *arg)
 			}
 			snprintf(currentSlot, sizeof(currentSlot), "%s", slot);
 			// set once per slot, so the clock a game is following never steps back mid-broadcast
-			if(clockMs >= 0)
-				BSXStreamSetClock(clockMs, fetched);
+			if(startMs >= 0)
+				BSXStreamSetClock(startMs + elapsedMs, fetched);
 			else
 				BSXStreamClearClock();
 		}
@@ -231,9 +304,15 @@ static void *StationThread(void *arg)
 		onAirLength = endsIn;
 		LWP_MutexUnlock(statusMutex);
 
+		// after the satellite data, so the game never waits on the radio; a failed fetch tries again next time
+		if(strcmp(slot, tunedSlot) != 0 && TuneRadio(startMs))
+			snprintf(tunedSlot, sizeof(tunedSlot), "%s", slot);
+
 		// a little jitter so a room full of Wiis doesn't hit the station in the same second
 		int wait = endsIn - (int)(ticks_to_millisecs(diff_ticks(fetched, gettime())) / 1000) +
 		           5 + (rand() % 10);
+		if(strcmp(slot, tunedSlot) != 0 && wait > RETRY_SECONDS)
+			wait = RETRY_SECONDS;
 		Nap(wait < 20 ? 20 : wait > 600 ? 600 : wait);
 	}
 	return NULL;
@@ -258,6 +337,12 @@ void StationStart(const char *url)
 
 void StationRefresh()
 {
+	refresh = true;
+}
+
+void StationRetune()
+{
+	tunedSlot[0] = 0;
 	refresh = true;
 }
 

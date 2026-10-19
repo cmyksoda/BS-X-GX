@@ -3073,6 +3073,7 @@ static int MenuSettingsEmulation()
 	sprintf(options.name[i++], "Sprites Per-Line Limit");
 	sprintf(options.name[i++], "Audio Interpolation");
 	sprintf(options.name[i++], "Mute Game Audio");
+	sprintf(options.name[i++], "SoundLink Radio");
 	sprintf(options.name[i++], "Frame Skipping");
 	sprintf(options.name[i++], "Show Framerate");
 	sprintf(options.name[i++], "Show Local Time");
@@ -3161,14 +3162,22 @@ static int MenuSettingsEmulation()
 				break;
 
 			case 4:
-				GCSettings.FrameSkip = !GCSettings.FrameSkip;
+				GCSettings.RadioVolume += 25;
+				if(GCSettings.RadioVolume > 100)
+					GCSettings.RadioVolume = 0;
+				if(GCSettings.RadioVolume <= 25)
+					StationRetune();
 				break;
 
 			case 5:
-				Settings.DisplayFrameRate = !Settings.DisplayFrameRate;
+				GCSettings.FrameSkip = !GCSettings.FrameSkip;
 				break;
 
 			case 6:
+				Settings.DisplayFrameRate = !Settings.DisplayFrameRate;
+				break;
+
+			case 7:
 				Settings.DisplayTime = !Settings.DisplayTime;
 				break;
 		}
@@ -3195,9 +3204,13 @@ static int MenuSettingsEmulation()
 			}
 
 			sprintf (options.value[3], "%s", GCSettings.MuteAudio ? "On" : "Off");
-			sprintf (options.value[4], "%s", GCSettings.FrameSkip ? "On" : "Off");
-			sprintf (options.value[5], "%s", Settings.DisplayFrameRate ? "On" : "Off");
-			sprintf (options.value[6], "%s", Settings.DisplayTime ? "On" : "Off");
+			if(GCSettings.RadioVolume > 0)
+				sprintf(options.value[4], "%d%%", GCSettings.RadioVolume);
+			else
+				sprintf(options.value[4], "Off");
+			sprintf (options.value[5], "%s", GCSettings.FrameSkip ? "On" : "Off");
+			sprintf (options.value[6], "%s", Settings.DisplayFrameRate ? "On" : "Off");
+			sprintf (options.value[7], "%s", Settings.DisplayTime ? "On" : "Off");
 
 			optionBrowser.TriggerUpdate();
 		}

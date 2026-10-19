@@ -139,13 +139,19 @@ void BSXStreamClearClock()
 	LWP_MutexUnlock(streamMutex);
 }
 
-bool BSXStreamClock(struct tm *out)
+bool BSXStreamClockMs(s64 *ms)
 {
 	LWP_MutexLock(streamMutex);
 	bool set = clockSet;
-	s64 ms = clockMs + (s64)ticks_to_millisecs(diff_ticks(clockAt, gettime()));
+	*ms = clockMs + (s64)ticks_to_millisecs(diff_ticks(clockAt, gettime()));
 	LWP_MutexUnlock(streamMutex);
-	if(!set)
+	return set;
+}
+
+bool BSXStreamClock(struct tm *out)
+{
+	s64 ms;
+	if(!BSXStreamClockMs(&ms))
 		return false;
 	time_t t = ms / 1000;
 	gmtime_r(&t, out);

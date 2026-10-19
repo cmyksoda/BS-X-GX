@@ -16,6 +16,7 @@
 #include <string.h>
 #include <strings.h>
 #include <unistd.h>
+#include <zlib.h>
 
 #include "http.h"
 
@@ -105,7 +106,9 @@ static long ContentLength(char *header)
 	return -1;
 }
 
-int HttpGet(const char *host, u16 port, const char *path, u8 *buf, u32 max)
+// the body goes to sink as it arrives; a false from sink stops the download
+static int Fetch(const char *host, u16 port, const char *path, u32 max,
+                 bool (*sink)(void *ctx, const u8 *data, u32 len), void *ctx)
 {
 	s32 s = Connect(host, port);
 	if(s < 0)
@@ -193,7 +196,11 @@ int HttpGet(const char *host, u16 port, const char *path, u8 *buf, u32 max)
 			result = HTTP_ERR_TOOBIG;
 			break;
 		}
-		memcpy(buf + got, p, left);
+		if(left && !sink(ctx, p, left))
+		{
+			result = HTTP_ERR_WRITE;
+			break;
+		}
 		got += left;
 		if(length >= 0 && got >= (u32)length)
 			break;
@@ -207,6 +214,39 @@ int HttpGet(const char *host, u16 port, const char *path, u8 *buf, u32 max)
 	return got;
 }
 
+struct BufferSink { u8 *buf; u32 got; };
+
+static bool ToBuffer(void *ctx, const u8 *data, u32 len)
+{
+	BufferSink *b = (BufferSink *)ctx;
+	memcpy(b->buf + b->got, data, len);
+	b->got += len;
+	return true;
+}
+
+int HttpGet(const char *host, u16 port, const char *path, u8 *buf, u32 max)
+{
+	BufferSink b = { buf, 0 };
+	return Fetch(host, port, path, max, ToBuffer, &b);
+}
+
+struct FileSink { FILE *f; u32 crc; };
+
+static bool ToFile(void *ctx, const u8 *data, u32 len)
+{
+	FileSink *s = (FileSink *)ctx;
+	s->crc = crc32(s->crc, data, len);
+	return fwrite(data, 1, len, s->f) == len;
+}
+
+int HttpGetFile(const char *host, u16 port, const char *path, FILE *f, u32 max, u32 *crc)
+{
+	FileSink s = { f, crc32(0L, Z_NULL, 0) };
+	int n = Fetch(host, port, path, max, ToFile, &s);
+	*crc = s.crc;
+	return n;
+}
+
 const char *HttpErrorString(int err)
 {
 	switch(err)
@@ -218,6 +258,7 @@ const char *HttpErrorString(int err)
 		case HTTP_ERR_STATUS: return "the station refused the request";
 		case HTTP_ERR_TOOBIG: return "broadcast too big";
 		case HTTP_ERR_RECEIVE: return "download interrupted";
+		case HTTP_ERR_WRITE: return "can't write to the SD card";
 	}
 	return "unknown error";
 }

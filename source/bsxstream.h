@@ -45,6 +45,7 @@ bool BSXStreamReceiving(u32 ms);
 void BSXStreamSetClock(s64 ms, u64 at);
 void BSXStreamClearClock();
 bool BSXStreamClock(struct tm *out);
+bool BSXStreamClockMs(s64 *ms);
 
 // core side, emulation thread only
 bool BSXStreamOpen(int which, u16 lci, u16 index, u32 *size);
