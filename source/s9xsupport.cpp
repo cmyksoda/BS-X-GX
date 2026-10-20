@@ -22,8 +22,11 @@
 #include "snes9x/display.h"
 #include "snes9x/apu/apu.h"
 #include "snes9x/controls.h"
+#include "bsxstream.h"
 
 #define MAX_MESSAGE_LEN (36 * 3)
+#define SNES_NTSC_HZ	60.0988		// the console's own frame rate; the Wii's 60 Hz modes are 59.94
+#define PACE_SKIP_GAP	200			// frames between owed frames at least, so a slow game isn't skipped into a stall
 
 static int timerstyle = 0;
 static long long prev;
@@ -147,6 +150,62 @@ static void S9xChooseFrameToRender(bool behindSchedule, int32 skipFrms)
 	}
 }
 
+/*
+ * While a SoundLink broadcast is on air (the station sent its clock), the SNES runs at its own rate, so what games
+ * time by counting frames keeps pace with the broadcast and its radio; the sound rate follows so the queue stays level.
+ */
+static bool SoundLinkPace()
+{
+	static bool on = false;
+	static u32 baseInputRate = 0;
+	s64 ms;
+	bool want = !Settings.PAL && !Settings.TurboMode && BSXStreamClockMs(&ms);
+
+	if (want != on)
+	{
+		on = want;
+		if (!baseInputRate)
+			baseInputRate = Settings.SoundInputRate;
+		Settings.SoundInputRate = on ? (u32)(baseInputRate * SNES_NTSC_HZ / 59.94 + 0.5) : baseInputRate;
+		UpdatePlaybackRate();
+	}
+	return on;
+}
+
+/*
+ * On a 59.94 Hz display, one frame in ~377 goes unshown so the rest keep the console's rate: true when the next
+ * frame should run straight on. Counted against the Wii's clock; a pause starts the count over instead of catching up.
+ */
+static bool OwedFrame()
+{
+	static long long start = 0, last = 0;
+	static double frames = 0;
+	static int sinceSkip = 0;
+	long long t = gettime();
+
+	if (!start || diff_usec(last, t) > 100000)
+	{
+		start = t;
+		frames = 0;
+		sinceSkip = 0;
+	}
+	last = t;
+	frames++;
+	sinceSkip++;
+
+	double due = diff_usec(start, t) * (SNES_NTSC_HZ / 1e6);
+	if (frames + 1 > due || sinceSkip < PACE_SKIP_GAP)
+		return false;
+	if (frames + 3 < due)
+	{
+		// behind for some other reason (a slow game): don't chase it
+		start = t;
+		frames = 0;
+	}
+	sinceSkip = 0;
+	return true;
+}
+
 void S9xSyncSpeed () {
 	const int32 skipFrms = Settings.TurboMode
 		? (int32) Settings.TurboSkipFrames
@@ -168,6 +227,10 @@ void S9xSyncSpeed () {
 
 		S9xChooseFrameToRender(behindSchedule, skipFrms);
 
+		// an unrendered frame doesn't wait for a VBlank, whatever the frame skip setting
+		if (SoundLinkPace() && OwedFrame())
+			IPPU.RenderThisFrame = FALSE;
+
 		// Only consume a VBlank if one actually occurred to prevent underflow.
 		// If pendingFrames == 0, we are perfectly pipelined (1 frame ahead).
 		if (!Settings.TurboMode && FrameTimer > 0)
@@ -175,7 +238,7 @@ void S9xSyncSpeed () {
 	}
 	else /* use internal timer for PAL roms (or TV/ROM mismatches) */
 	{
-		const u32 timediffallowed = Settings.TurboMode ? 0 : Settings.FrameTime;
+		const u32 timediffallowed = Settings.TurboMode ? 0 : SoundLinkPace() ? (u32)(1e6 / SNES_NTSC_HZ) : Settings.FrameTime;
 
 		now = gettime();
 
