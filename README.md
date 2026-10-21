@@ -40,14 +40,23 @@ podman run --rm -v "$PWD":/src:Z -w /src ghcr.io/extremscorner/libogc2:latest ma
 
 Output: `executables/bsx-gx-wii.dol`.
 
-## Licenses & credits
+## Credits
 
-- Front-end (`source/` except `source/snes9x/`): GNU GPL v2 — see [`LICENSE`](LICENSE).
-- Emulator core (`source/snes9x/`): the Snes9x license (non-commercial) — see [`source/snes9x/LICENSE`](source/snes9x/LICENSE).
-- Snes9x GX: Tantric, Zopenko, Askot, michniewski, InfiniteBlue and contributors. 
-- Snes9x: the Snes9x Team. libogc2 / devkitPPC: Extrems, shagkur, WinterMute.
-- SatellaWave & the Satellaview research it rests on: LuigiBlood. BS-X translation & No-DRM patch: the BS-X Project.
-- The upstream Snes9x GX README is preserved as `docs-upstream-snes9xgx-README.md`.
+- **[Snes9x GX](https://github.com/dborth/snes9xgx)** by Tantric, Zopenko, Askot, michniewski, InfiniteBlue and contributors, the front-end this is forked from; its upstream README is preserved as `docs-upstream-snes9xgx-README.md`
+- **[Snes9x](https://github.com/snes9xgit/snes9x)** by the Snes9x Team, the emulator core
+- **libogc2** and **devkitPPC** by Extrems, shagkur, and WinterMute
+- **[SatellaWave](https://github.com/LuigiBlood/sat_wave)** and the Satellaview research it rests on, by LuigiBlood
+- **BS-X translation and No-DRM patch** by the [BS-X Project](https://project.satellaview.org/downloads.htm)
+- The menu artwork by the3seashells and the menu sounds by Peter de Man, from Snes9x GX
+- **FreeTypeGX** by Armin Tamzarian, for drawing the menu text
+- **wiidrc** by FIX94, for Wii U GamePad support
+- **oggplayer** by Francisco Muñoz "Hermes", for the menu music
+- **PNGU** by frontier, for loading PNG images
+- The menu font, **Horatio D** by URW, and the optional language fonts: **Systema** by MASUDA mitiya (Konatu), the M+ Project and Systema81 for Japanese, **LexiGulim** by Lexitech for Korean, and **FZLanTingHei** by Beijing Founder Electronics for Chinese
+
+## License
+
+The front-end (`source/` except `source/snes9x/`) is free software under the [GNU General Public License, version 2](LICENSE). Some parts use other licenses: the emulator core (`source/snes9x/`) is under the Snes9x license (non-commercial), see [`source/snes9x/LICENSE`](source/snes9x/LICENSE); FreeTypeGX is LGPL version 3 or later, wiidrc is MIT, oggplayer has its own BSD-style license, and the fonts keep their makers' terms. Each of these files carries its own notice.
 
 ---
 
